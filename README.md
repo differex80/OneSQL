@@ -1,2 +1,2 @@
 # onesql
-ONeSQL - Universal SQL Editor
+OneSQL - Universal SQL Editor
