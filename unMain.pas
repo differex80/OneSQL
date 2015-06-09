@@ -271,6 +271,8 @@ end;
 procedure Tmain.buHistoryClick(Sender: TObject);
 var
   i: Integer;
+  synEdit: TSynEdit;
+  sHistorySQL: String;
 begin
   StyleComponents(history);
   with history.qHistory do
@@ -281,6 +283,16 @@ begin
     ParamByName('P_SESSION').Value := pcSessions.ActivePage.Caption;
   end;
   history.ShowModal;
+  if history.ModalResult = mrOK then
+  begin
+    synEdit := GetSQLEditor(GetActiveEditorPC.ActivePage);
+    sHistorySQL := history.qHistory.FieldByName('statement').AsString;
+    if Length(synEdit.Text) = 0 then
+      synEdit.Text := synEdit.Text + sHistorySQL
+    else
+      synEdit.Text := synEdit.Text + #13#10 + #13#10 + sHistorySQL;
+    synEdit.SelStart := Length(synEdit.Text) - Length(sHistorySQL);
+  end;
 end;
 
 procedure Tmain.buPreferencesClick(Sender: TObject);

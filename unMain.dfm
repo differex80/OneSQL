@@ -33,7 +33,6 @@ object main: Tmain
     Align = alTop
     BevelOuter = bvNone
     TabOrder = 0
-    ExplicitWidth = 1016
     object buSessionManager: TcxButton
       Left = 0
       Top = 0
@@ -193,7 +192,6 @@ object main: Tmain
       SpeedButtonOptions.Flat = True
       TabOrder = 10
       OnClick = buPreferencesClick
-      ExplicitLeft = 948
     end
     object buExportJSON: TcxButton
       Left = 402
@@ -222,7 +220,6 @@ object main: Tmain
       SpeedButtonOptions.Flat = True
       TabOrder = 12
       OnClick = buExitClick
-      ExplicitLeft = 982
     end
     object buHistory: TcxButton
       Left = 898
@@ -237,7 +234,6 @@ object main: Tmain
       SpeedButtonOptions.Flat = True
       TabOrder = 13
       OnClick = buHistoryClick
-      ExplicitLeft = 914
     end
   end
   object paSessions: TPanel
@@ -249,8 +245,6 @@ object main: Tmain
     BevelOuter = bvNone
     BorderWidth = 4
     TabOrder = 1
-    ExplicitWidth = 1024
-    ExplicitHeight = 706
     object pcSessions: TcxPageControl
       Left = 4
       Top = 4
@@ -268,8 +262,7 @@ object main: Tmain
       LookAndFeel.NativeStyle = True
       OnCanCloseEx = pcSessionsCanCloseEx
       OnChange = pcSessionsChange
-      ExplicitWidth = 1016
-      ExplicitHeight = 698
+      ExplicitTop = 6
       ClientRectBottom = 656
       ClientRectLeft = 4
       ClientRectRight = 996

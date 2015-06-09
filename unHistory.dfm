@@ -63,15 +63,18 @@ object history: Thistory
     BevelOuter = bvNone
     BorderWidth = 4
     TabOrder = 1
-    object cxGrid1: TcxGrid
+    object grHistory: TcxGrid
       Left = 4
       Top = 4
       Width = 129
       Height = 517
       Align = alClient
       TabOrder = 0
-      object cxGrid1DBTableView1: TcxGridDBTableView
+      ExplicitLeft = 6
+      ExplicitTop = 6
+      object tvHistory: TcxGridDBTableView
         Navigator.Buttons.CustomButtons = <>
+        OnCellDblClick = tvHistoryCellDblClick
         DataController.DataSource = dsHistory
         DataController.Summary.DefaultGroupSummaryItems = <>
         DataController.Summary.FooterSummaryItems = <>
@@ -85,13 +88,13 @@ object history: Thistory
         Preview.AutoHeight = False
         Preview.MaxLineCount = 0
         Preview.Visible = True
-        object cxGrid1DBTableView1ts: TcxGridDBColumn
+        object tvHistoryts: TcxGridDBColumn
           DataBinding.FieldName = 'ts'
           Options.Editing = False
         end
       end
-      object cxGrid1Level1: TcxGridLevel
-        GridView = cxGrid1DBTableView1
+      object lvHistory: TcxGridLevel
+        GridView = tvHistory
       end
     end
   end
@@ -105,7 +108,7 @@ object history: Thistory
     BorderWidth = 4
     Caption = 'Panel3'
     TabOrder = 2
-    object DBSynEdit1: TDBSynEdit
+    object dbseStatement: TDBSynEdit
       Left = 4
       Top = 4
       Width = 639

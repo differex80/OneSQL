@@ -6,8 +6,8 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, cxPCdxBarPopupMenu, cxGraphics, cxControls, cxLookAndFeels,
   cxLookAndFeelPainters, Menus, cxContainer, cxEdit, cxTextEdit, cxMaskEdit,
-  cxDropDownEdit, dxColorEdit, StdCtrls, cxButtons, cxPC, ExtCtrls, ShellApi,
-  cxColorComboBox, IniFiles, FileCtrl, SynEdit, SynEditHighlighter, SynHighlighterSQL,
+  cxDropDownEdit, dxColorEdit, FileCtrl, StdCtrls, cxButtons, cxPC, ExtCtrls, ShellApi,
+  cxColorComboBox, IniFiles, SynEdit, SynEditHighlighter, SynHighlighterSQL,
   System.UITypes, System.Types, dxBarBuiltInMenu;
 
 type

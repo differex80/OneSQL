@@ -23,12 +23,12 @@ type
     syntax: TSynSQLSyn;
     Panel1: TPanel;
     Panel2: TPanel;
-    cxGrid1: TcxGrid;
-    cxGrid1DBTableView1: TcxGridDBTableView;
-    cxGrid1DBTableView1ts: TcxGridDBColumn;
-    cxGrid1Level1: TcxGridLevel;
+    grHistory: TcxGrid;
+    tvHistory: TcxGridDBTableView;
+    tvHistoryts: TcxGridDBColumn;
+    lvHistory: TcxGridLevel;
     Panel3: TPanel;
-    DBSynEdit1: TDBSynEdit;
+    dbseStatement: TDBSynEdit;
     buClose: TcxButton;
     edHistorySearch: TcxTextEdit;
     tiExecuteHistory: TTimer;
@@ -39,6 +39,9 @@ type
     procedure edHistorySearchEnter(Sender: TObject);
     procedure edHistorySearchPropertiesChange(Sender: TObject);
     procedure tiExecuteHistoryTimer(Sender: TObject);
+    procedure tvHistoryCellDblClick(Sender: TcxCustomGridTableView;
+      ACellViewInfo: TcxGridTableDataCellViewInfo; AButton: TMouseButton;
+      AShift: TShiftState; var AHandled: Boolean);
   private
     { Private declarations }
   public
@@ -58,6 +61,14 @@ uses unMain, unDm;
 procedure Thistory.buCloseClick(Sender: TObject);
 begin
 
+  CloseModal;
+end;
+
+procedure Thistory.tvHistoryCellDblClick(
+  Sender: TcxCustomGridTableView; ACellViewInfo: TcxGridTableDataCellViewInfo;
+  AButton: TMouseButton; AShift: TShiftState; var AHandled: Boolean);
+begin
+  history.ModalResult := mrOK;
   CloseModal;
 end;
 
