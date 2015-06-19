@@ -10,20 +10,22 @@ uses
   cxGraphics, cxControls, cxLookAndFeels, cxLookAndFeelPainters, cxContainer,
   cxEdit, cxStyles, cxCustomData, cxFilter, cxData, cxDataStorage, cxDBData,
   cxGridLevel, cxClasses, IniFiles, cxGridCustomView, cxGridCustomTableView,
-  cxGridTableView, cxGridDBTableView, cxGrid, cxMemo, Menus, StdCtrls, cxButtons,
+  cxGridTableView, cxGridDBTableView, cxGrid, cxMemo, Menus, StdCtrls,
+  cxButtons,
   ExtCtrls, cxPC, cxSplitter, cxGridCustomPopupMenu, cxGridPopupMenu,
   cxPCdxBarPopupMenu, cxTreeView, cxVGrid, cxDBVGrid, cxInplaceContainer,
-  cxGridExportLink, cxExport, cxNavigator, cxTextEdit, cxMaskEdit, cxDropDownEdit,
+  cxGridExportLink, cxExport, cxNavigator, cxTextEdit, cxMaskEdit,
+  cxDropDownEdit,
   cxImageComboBox,
-  ioutils, unEncrypt, CHILKATSSHLib_TLB, AsyncCalls, System.UITypes, System.Types,
+  ioutils, unEncrypt, CHILKATSSHLib_TLB, AsyncCalls, System.UITypes,
+  System.Types,
   SynEdit, SynEditHighlighter, SynHighlighterSQL, StrUtils, ShellApi, SHFolder,
   SynEditMiscClasses, SynEditSearch, SQLMemMain, cxBlobEdit, dxBarBuiltInMenu,
   System.Actions, System.Character, Vcl.Grids, Vcl.DBGrids, SynDBEdit;
 
-  const
+const
   maxParams = 20;
   maxEditors = 30;
-
 
 type
   TParam = record
@@ -134,7 +136,8 @@ type
     function GetActiveEditorPC: TcxPageControl;
     function GetObjectMemTable(Tab: TcxTabSheet): TSQLMemTable;
     function GetSQLEditor(Control: TWinControl): TSynEdit;
-    function GetSQLGridView(Control: TWinControl): TcxGridDBTableView;
+    function GetDataGridView(Control: TWinControl): TcxGridDBTableView;
+    function GetStatusGridView(Control: TWinControl): TcxGridTableView;
     function GetSessionTab(SessionName: String): TcxTabSheet;
     function GetSession(SessionName: String): TUniConnection;
     function GetObjectInspector(Conn: TUniConnection): TcxTreeView;
@@ -163,12 +166,16 @@ type
     procedure ExportToJson(FileName: TFileName; GridView: TcxGridDBTableView);
     procedure StyleComponents(Component: TComponent);
     procedure DisplaySessionObjects;
-    procedure Log(Sess: String; Statement: String);
+    function Log(Sess: String; Statement: String): Int64;
+    procedure AddStatus(EditorTab: TcxTabSheet; Status: String = ''; Error: String = '';
+      HistoryID: Int64 = 0);
 
-    procedure ObjectInspectorExpanding(Sender: TObject; Node: TTreeNode; var AllowExpansion: Boolean);
+    procedure ObjectInspectorExpanding(Sender: TObject; Node: TTreeNode;
+      var AllowExpansion: Boolean);
     procedure ObjectInspectorChange(Sender: TObject; Node: TTreeNode);
     procedure OnEditorClose(Sender: TObject; ATabIndex: Integer; var ACanClose: Boolean);
-    procedure PageControlMouseClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure PageControlMouseClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState;
+      X, Y: Integer);
     procedure PageControlContexPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
     procedure pcEditorOnChange(Sender: TObject);
     procedure EditorOnChange(Sender: TObject);
@@ -176,22 +183,20 @@ type
     procedure SearchKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure OnAutoCommitChange(Sender: TObject);
     procedure CancelExecute(Sender: TObject);
-//    function GetNewSession(SessionName: String): TUniConnection;
-    procedure onGetContentStyle(Sender: TcxCustomGridTableView;
-      ARecord: TcxCustomGridRecord; AItem: TcxCustomGridTableItem;
-      var AStyle: TcxStyle);
-    procedure onGetDisplayText(Sender: TcxCustomGridTableItem;
-      ARecord: TcxCustomGridRecord; var AText: string);
-    procedure onDataGridDblClick(Sender: TcxCustomGridTableView;
-      ACellViewInfo: TcxGridTableDataCellViewInfo; AButton: TMouseButton;
-      AShift: TShiftState; var AHandled: Boolean);
-    function GetResultLabel(Control: TWinControl): TLabel;
+    // function GetNewSession(SessionName: String): TUniConnection;
+    procedure onGetContentStyle(Sender: TcxCustomGridTableView; ARecord: TcxCustomGridRecord;
+      AItem: TcxCustomGridTableItem; var AStyle: TcxStyle);
+    procedure onGetDisplayText(Sender: TcxCustomGridTableItem; ARecord: TcxCustomGridRecord;
+      var AText: string);
+    procedure onStatusGridDblClick(Sender: TcxCustomGridTableView;
+      ACellViewInfo: TcxGridTableDataCellViewInfo; AButton: TMouseButton; AShift: TShiftState;
+      var AHandled: Boolean);
     function GetEditorFileName(Editor: TSynEdit): TFileName;
     procedure OnBeforeQueryPost(DataSet: TDataSet);
   public
     procedure ShowError(sMessage: String);
-    procedure ExecuteSQLCallback(EditorTab: TcxTabSheet; Query: TUniQuery;
-      SQL: TUniSQL; GridView: TcxGridDBTableView; Error: String);
+    procedure ExecuteSQLCallback(EditorTab: TcxTabSheet; Query: TUniQuery; SQL: TUniSQL;
+      GridView: TcxGridDBTableView; Error: String);
   end;
 
 var
@@ -199,7 +204,8 @@ var
 
 implementation
 
-uses unParamForm, unSessionForm, unDm, unSessionManager, unPreferences, unHistory;
+uses unParamForm, unSessionForm, unDm, unSessionManager, unPreferences,
+  unHistory;
 
 {$R *.dfm}
 
@@ -220,7 +226,9 @@ end;
 
 procedure Tmain.pmEditorPopup(Sender: TObject);
 begin
-  miSelectForUpdate.Checked := GetSQLGridView(TWinControl(TPopupMenu(Sender).PopupComponent.GetParentComponent.GetParentComponent)).DataController.DataSource.AutoEdit;
+  miSelectForUpdate.Checked :=
+    GetDataGridView(TWinControl(TPopupMenu(Sender)
+    .PopupComponent.GetParentComponent.GetParentComponent)).DataController.DataSource.AutoEdit;
   if miSelectForUpdate.Checked then
     miSelectForUpdate.ImageIndex := 0
   else
@@ -230,37 +238,37 @@ end;
 procedure Tmain.buRollbackClick(Sender: TObject);
 var
   PC: TcxPageControl;
-  conn: TUniConnection;
+  Conn: TUniConnection;
 begin
   PC := GetActiveEditorPC;
   if PC = nil then
     Exit;
-  conn := GetSession(pcSessions.ActivePage.Caption);
-  if not conn.InTransaction then
+  Conn := GetSession(pcSessions.ActivePage.Caption);
+  if not Conn.InTransaction then
   begin
-    GetResultLabel(PC.ActivePage).Caption := 'Nothing to rollback';
+    AddStatus(PC.ActivePage, 'Nothing to rollback');
     Exit;
   end;
-  conn.Rollback;
-  GetResultLabel(PC.ActivePage).Caption := 'Rollback executed at ' + DateTimeToStr(now);
+  Conn.Rollback;
+  AddStatus(PC.ActivePage, 'Rollback executed at ' + DateTimeToStr(now));
 end;
 
 procedure Tmain.buCommitClick(Sender: TObject);
 var
   PC: TcxPageControl;
-  conn: TUniConnection;
+  Conn: TUniConnection;
 begin
   PC := GetActiveEditorPC;
   if PC = nil then
     Exit;
-  conn := GetSession(pcSessions.ActivePage.Caption);
-  if not conn.InTransaction then
+  Conn := GetSession(pcSessions.ActivePage.Caption);
+  if not Conn.InTransaction then
   begin
-    GetResultLabel(PC.ActivePage).Caption := 'Nothing to commit';
+    AddStatus(PC.ActivePage, 'Nothing to commit');
     Exit;
   end;
-  conn.Commit;
-  GetResultLabel(PC.ActivePage).Caption := 'Commit executed at ' + DateTimeToStr(now);
+  Conn.Commit;
+  AddStatus(PC.ActivePage, 'Commit executed at ' + DateTimeToStr(now));
 end;
 
 procedure Tmain.buExportXLSClick(Sender: TObject);
@@ -271,27 +279,27 @@ end;
 procedure Tmain.buHistoryClick(Sender: TObject);
 var
   i: Integer;
-  synEdit: TSynEdit;
+  SynEdit: TSynEdit;
   sHistorySQL: String;
 begin
   StyleComponents(history);
   with history.qHistory do
   begin
     Close;
-    for i := 0 to ParamCount -1 do
+    for i := 0 to ParamCount - 1 do
       Params[i].Value := null;
     ParamByName('P_SESSION').Value := pcSessions.ActivePage.Caption;
   end;
   history.ShowModal;
   if history.ModalResult = mrOK then
   begin
-    synEdit := GetSQLEditor(GetActiveEditorPC.ActivePage);
+    SynEdit := GetSQLEditor(GetActiveEditorPC.ActivePage);
     sHistorySQL := history.qHistory.FieldByName('statement').AsString;
-    if Length(synEdit.Text) = 0 then
-      synEdit.Text := synEdit.Text + sHistorySQL
+    if Length(SynEdit.Text) = 0 then
+      SynEdit.Text := SynEdit.Text + sHistorySQL
     else
-      synEdit.Text := synEdit.Text + #13#10 + #13#10 + sHistorySQL;
-    synEdit.SelStart := Length(synEdit.Text) - Length(sHistorySQL);
+      SynEdit.Text := SynEdit.Text + #13#10 + #13#10 + sHistorySQL;
+    SynEdit.SelStart := Length(SynEdit.Text) - Length(sHistorySQL);
   end;
 end;
 
@@ -301,7 +309,7 @@ var
 begin
   Pref := TPreferences.Create(Self);
   try
-    if Pref.ShowModal = mrOk then
+    if Pref.ShowModal = mrOK then
     begin
       StyleComponents(main);
       LoadGenericOptions;
@@ -315,10 +323,10 @@ procedure Tmain.StyleComponents(Component: TComponent);
 var
   i: Integer;
 begin
-  for i := 0 to Component.ComponentCount -1 do
+  for i := 0 to Component.ComponentCount - 1 do
   begin
     if (Component.Components[i] is TSynSQLSyn) or (Component.Components[i] is TDBSynEdit) or
-       (Component.Components[i] is TSynEdit) or (Component.Components[i] is TcxGrid) then
+      (Component.Components[i] is TSynEdit) or (Component.Components[i] is TcxGrid) then
       dm.Style(Component.Components[i]);
     StyleComponents(Component.Components[i]);
   end;
@@ -349,8 +357,9 @@ var
   Grid: TcxGridDBTableView;
   DataSet: TUniQuery;
 begin
-  Grid := GetSQLGridView(TcxButton(Sender).Parent.Parent.Parent);
-  if Grid = nil then Exit;
+  Grid := GetDataGridView(TcxButton(Sender).Parent.Parent.Parent);
+  if Grid = nil then
+    Exit;
   TcxButton(Sender).Enabled := False;
   DataSet := TUniQuery(Grid.DataController.DataSource.DataSet);
   DataSet.Tag := 1;
@@ -367,32 +376,23 @@ begin
   SessionF.Destroy;
 end;
 
-procedure Tmain.onDataGridDblClick(Sender: TcxCustomGridTableView;
-  ACellViewInfo: TcxGridTableDataCellViewInfo; AButton: TMouseButton;
-  AShift: TShiftState; var AHandled: Boolean);
+procedure Tmain.onStatusGridDblClick(Sender: TcxCustomGridTableView;
+  ACellViewInfo: TcxGridTableDataCellViewInfo; AButton: TMouseButton; AShift: TShiftState;
+  var AHandled: Boolean);
 begin
-(*  if TcxGridDBColumn(ACellViewInfo.Item).DataBinding.Field is TBlobField then
-  begin
-    s := TMemoryStream.Create;
-    TBlobField(TcxGridDBColumn(ACellViewInfo.Item).DataBinding.Field).SaveToStream(s);
-    s.Position := 0;
-    ShowMessage(s.ToString);
-    s.Free;
-
-  end;   *)
-//    ShowMessage(TBlobField(TcxGridDBColumn(ACellViewInfo.Item).DataBinding.Field).AsString);
+  history.iLookupId := TcxGridTableView(Sender).Items[0].EditValue;
+  if history.iLookupId <> 0 then
+    buHistory.Click;
 end;
 
-procedure Tmain.onGetDisplayText(
-  Sender: TcxCustomGridTableItem; ARecord: TcxCustomGridRecord;
+procedure Tmain.onGetDisplayText(Sender: TcxCustomGridTableItem; ARecord: TcxCustomGridRecord;
   var AText: string);
 begin
-  if Arecord.Values[Sender.Index] = null then
+  if ARecord.Values[Sender.Index] = null then
     AText := cNullString;
 end;
 
-procedure Tmain.onGetContentStyle(
-  Sender: TcxCustomGridTableView; ARecord: TcxCustomGridRecord;
+procedure Tmain.onGetContentStyle(Sender: TcxCustomGridTableView; ARecord: TcxCustomGridRecord;
   AItem: TcxCustomGridTableItem; var AStyle: TcxStyle);
 begin
   try
@@ -419,7 +419,9 @@ var
   VGrid: TcxDBVerticalGrid;
   TableName: String;
 begin
-  if (Node.Text = 'Columns') or (Node.Text = 'Constraints') or (Node.Text = 'Indexes') or (pos('Tables', Node.Text) > 0) or (pos('Procedures', Node.Text) > 0) or (pos('Functions', Node.Text) > 0) then
+  if (Node.Text = 'Columns') or (Node.Text = 'Constraints') or (Node.Text = 'Indexes') or
+    (pos('Tables', Node.Text) > 0) or (pos('Procedures', Node.Text) > 0) or
+    (pos('Functions', Node.Text) > 0) then
     Exit;
   Meta := GetMetaData;
   VGrid := GetObjectInfoGrid(pcSessions.ActivePage);
@@ -445,14 +447,13 @@ begin
         TableName := Node.Parent.Parent.Text;
       if (pos('/', Connection.Database) > 0) or (pos('\', Connection.Database) > 0) then
         Meta.Restrictions.Values['TABLE_CATALOG'] := Connection.Database
+      else if Connection.SpecificOptions.Values['SCHEMA'] <> '' then
+      begin
+        Restrictions.Values['TABLE_CATALOG'] := Connection.Database;
+        Restrictions.Values['TABLE_SCHEMA'] := Connection.SpecificOptions.Values['SCHEMA'];
+      end
       else
-        if Connection.SpecificOptions.Values['SCHEMA'] <> '' then
-        begin
-          Restrictions.Values['TABLE_CATALOG'] := Connection.Database;
-          Restrictions.Values['TABLE_SCHEMA'] := Connection.SpecificOptions.Values['SCHEMA'];
-        end
-        else
-          Restrictions.Values['TABLE_SCHEMA'] := Connection.Database;
+        Restrictions.Values['TABLE_SCHEMA'] := Connection.Database;
       Restrictions.Values['TABLE_NAME'] := TableName;
       if Node.Parent.Text = 'Columns' then
         Restrictions.Values['COLUMN_NAME'] := Node.Text
@@ -467,7 +468,8 @@ begin
   end;
 end;
 
-procedure Tmain.ObjectInspectorExpanding(Sender: TObject; Node: TTreeNode; var AllowExpansion: Boolean);
+procedure Tmain.ObjectInspectorExpanding(Sender: TObject; Node: TTreeNode;
+  var AllowExpansion: Boolean);
 var
   Conn: TUniConnection;
   Meta: TUniMetaData;
@@ -490,19 +492,19 @@ begin
     Meta.MetaDataKind := 'Columns';
     if (pos('/', Conn.Database) > 0) or (pos('\', Conn.Database) > 0) then
       Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database
+    else if Meta.Connection.SpecificOptions.Values['SCHEMA'] <> '' then
+    begin
+      Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database;
+      Meta.Restrictions.Values['TABLE_SCHEMA'] := Meta.Connection.SpecificOptions.Values['SCHEMA'];
+    end
     else
-      if Meta.Connection.SpecificOptions.Values['SCHEMA'] <> '' then
-      begin
-        Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database;
-        Meta.Restrictions.Values['TABLE_SCHEMA'] := Meta.Connection.SpecificOptions.Values['SCHEMA'];
-      end
-      else
-        Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.Database;
+      Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.Database;
     Meta.Restrictions.Values['TABLE_NAME'] := Node.Text;
     Meta.Active := True;
     while not Meta.Eof do
     begin
-      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode, Meta.FieldByName('COLUMN_NAME').AsString);
+      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode,
+        Meta.FieldByName('COLUMN_NAME').AsString);
       Item.ImageIndex := 11;
       Item.SelectedIndex := Item.ImageIndex;
       Meta.Next;
@@ -516,7 +518,8 @@ begin
     Meta.Active := True;
     while not Meta.Eof do
     begin
-      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode, Meta.FieldByName('CONSTRAINT_NAME').AsString);
+      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode,
+        Meta.FieldByName('CONSTRAINT_NAME').AsString);
       if Meta.FieldByName('CONSTRAINT_TYPE').AsString = 'PRIMARY KEY' then
         Item.ImageIndex := 12
       else if Meta.FieldByName('CONSTRAINT_TYPE').AsString = 'FOREIGN KEY' then
@@ -537,7 +540,8 @@ begin
     Meta.Active := True;
     while not Meta.Eof do
     begin
-      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode, Meta.FieldByName('INDEX_NAME').AsString);
+      Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode,
+        Meta.FieldByName('INDEX_NAME').AsString);
       if Meta.FieldByName('UNIQUE').AsInteger = 1 then
         Item.ImageIndex := 15
       else
@@ -565,7 +569,8 @@ begin
   end;
 end;
 
-procedure Tmain.PageControlMouseClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+procedure Tmain.PageControlMouseClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState;
+  X, Y: Integer);
 var
   i: Integer;
 begin
@@ -586,7 +591,7 @@ begin
   dm.connection_name := '';
   mr := SessionF.ShowModal;
   SessionF.Destroy;
-  if mr = mrOk then
+  if mr = mrOK then
     buSessionManager.Click;
 end;
 
@@ -635,7 +640,7 @@ begin
   sdSQL.FileName := GetEditorFileName(Memo);
   if sdSQL.FileName = '' then
     if pos('*', Tab.Caption) > 0 then
-      sdSQL.FileName := copy(Tab.Caption, 1, Length(Tab.Caption) -2)
+      sdSQL.FileName := copy(Tab.Caption, 1, Length(Tab.Caption) - 2)
     else
       sdSQL.FileName := Tab.Caption;
   if Tab.Tag = 1 then
@@ -698,7 +703,8 @@ end;
 
 procedure Tmain.OnBeforeQueryPost(DataSet: TDataSet);
 begin
-  if (not TUniQuery(DataSet).Connection.AutoCommit) and (not TUniQuery(DataSet).Connection.InTransaction) then
+  if (not TUniQuery(DataSet).Connection.AutoCommit) and
+    (not TUniQuery(DataSet).Connection.InTransaction) then
     TUniQuery(DataSet).Connection.StartTransaction;
 end;
 
@@ -707,7 +713,7 @@ var
   SessionF: TsessionForm;
   mr: Integer;
   Tab: TcxTabSheet;
-  sess: String;
+  Sess: String;
 begin
   sessionManager.ShowModal;
   if dm.connection_name <> '' then
@@ -715,7 +721,7 @@ begin
     SessionF := TsessionForm.Create(Self);
     mr := SessionF.ShowModal;
     SessionF.Destroy;
-    if mr = mrOk then
+    if mr = mrOK then
       buSessionManager.Click;
   end
   else if dm.new_session <> '' then
@@ -731,7 +737,7 @@ begin
           Tab.Free;
         end;
       end;
-      sess := dm.new_session;
+      Sess := dm.new_session;
     finally
       dm.new_session := '';
     end;
@@ -750,12 +756,16 @@ end;
 
 function Tmain.AddSqlEditor(pcEditors: TcxPageControl; sCaption: String): TcxTabSheet;
 var
-  Tab: TcxTabSheet;
+  Tab, tsGrid, tsStatus: TcxTabSheet;
+  pcResults: TcxPageControl;
   Conn: TUniConnection;
-  paEditor, paGrid, StatusPanel: TPanel;
-  cxGrid: TcxGrid;
-  cxGridLevel: TcxGridLevel;
-  cxGridView: TcxGridDBTableView;
+  paEditor, paGrids, StatusPanel: TPanel;
+  cxDataGrid, cxStatusGrid: TcxGrid;
+  cxDataGridLevel, cxStatusGridLevel: TcxGridLevel;
+  cxDataGridView: TcxGridDBTableView;
+  cxStatusGridView: TcxGridTableView;
+  Col: TcxGridColumn;
+  colICB: TcxImageComboBoxItem;
   Query: TUniQuery;
   SQL: TUniSQL;
   DataSource: TDataSource;
@@ -769,7 +779,8 @@ begin
     Exit;
   if GetActiveEditorParamCount >= maxEditors then
   begin
-    ShowMessage('Max number of SQL editors reached! Please close some of unused SQL editors before creating a new one!');
+    ShowMessage
+      ('Max number of SQL editors reached! Please close some of unused SQL editors before creating a new one!');
     Exit;
   end;
   Conn := GetSession(TcxTabSheet(pcEditors.Parent).Caption);
@@ -813,7 +824,8 @@ begin
     WantTabs := True;
     TabWidth := 2;
     RightEdge := 0;
-    Options := Options - [eoSmartTabs, eoTabsToSpaces, eoScrollPastEol] + [eoAltSetsColumnMode, eoTabIndent];
+    Options := Options - [eoSmartTabs, eoTabsToSpaces, eoScrollPastEol] +
+      [eoAltSetsColumnMode, eoTabIndent];
     Gutter.ShowLineNumbers := True;
     Gutter.LeftOffset := 0;
     Highlighter := GetSyntaxSQL(TcxTabSheet(pcEditors.Parent));
@@ -834,28 +846,29 @@ begin
       break
     end;
   end;
-  { Create Data Grid panel - for TcxGrid }
-  paGrid := TPanel.Create(Tab);
-  with paGrid do
+{$REGION 'Create Data Grid panel - for TcxGrid'}
+  paGrids := TPanel.Create(Tab);
+  with paGrids do
   begin
     Name := 'paGrid' + pcEditors.Name + IntToStr(pcEditors.Tag);
     BevelOuter := bvNone;
     Align := alBottom;
-    Height := Round(Tab.Height * 0.3);
     AlignWithMargins := True;
     Margins.Top := 4;
+    Margins.Left := 0;
     Margins.Right := 0;
     Margins.Bottom := 0;
-    Margins.Left := 0;
+    Height := Round(Tab.Height * 0.3);
     Caption := '';
     Parent := Tab;
   end;
-  { Create Ststus panel }
-  StatusPanel := TPanel.Create(paGrid);
+{$ENDREGION}
+{$REGION 'Create Ststus panel'}
+  StatusPanel := TPanel.Create(Tab);
   with StatusPanel do
   begin
-    Parent := paGrid;
-    Name := 'paBottom' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    Parent := paGrids;
+    Name := 'paStatus' + pcEditors.Name + IntToStr(pcEditors.Tag);
     BevelOuter := bvNone;
     Align := alBottom;
     Height := 25;
@@ -866,14 +879,7 @@ begin
     Margins.Bottom := 0;
     Caption := '';
   end;
-  with TLabel.Create(Tab) do
-  begin
-    Parent := StatusPanel;
-    Align := alLeft;
-    Name := 'laResult' + pcEditors.Name + IntToStr(pcEditors.Tag);
-    Caption := '';
-    Tag := 1;
-  end;
+{$ENDREGION}
   { Create Cancel execution button }
   with TcxButton.Create(Tab) do
   begin
@@ -887,6 +893,35 @@ begin
     Enabled := False;
     OnClick := CancelExecute;
   end;
+  { Create Results page control }
+  pcResults := TcxPageControl.Create(Tab);
+  with pcResults do
+  begin
+    TabPosition := tpBottom;
+    Name := 'pcResults' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    Parent := paGrids;
+    Align := alClient;
+    Images := dm.imListSmall;
+  end;
+  { Create Results Data tab }
+  tsGrid := TcxTabSheet.Create(pcResults);
+  with tsGrid do
+  begin
+    PageControl := pcResults;
+    Caption := 'Data';
+    AlignWithMargins := True;
+    Margins.Top := 2;
+    Margins.Right := 3;
+    Margins.Bottom := 2;
+    Margins.Left := 1;
+  end;
+  { Create Results Data tab }
+  tsStatus := TcxTabSheet.Create(pcResults);
+  with tsStatus do
+  begin
+    PageControl := pcResults;
+    Caption := 'Status';
+  end;
   { Create UniQuerry - For select statements }
   Query := TUniQuery.Create(Tab);
   with Query do
@@ -895,9 +930,9 @@ begin
     Connection := Conn;
     if not Conn.AutoCommit then
       Transaction := Conn.DefaultTransaction;
-    { Start transaction if editing thru grid}
+    { Start transaction if editing thru grid }
     BeforePost := OnBeforeQueryPost;
-    BeforeDelete:= OnBeforeQueryPost;
+    BeforeDelete := OnBeforeQueryPost;
   end;
   { Create UniSQl - For DML and DDL actions }
   SQL := TUniSQL.Create(Tab);
@@ -917,11 +952,11 @@ begin
     AutoEdit := False;
   end;
   { Create Data Grid }
-  cxGrid := TcxGrid.Create(paGrid);
-  with cxGrid do
+  cxDataGrid := TcxGrid.Create(Tab);
+  with cxDataGrid do
   begin
-    Parent := paGrid;
-    Name := 'cxGrid' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    Parent := tsGrid;
+    Name := 'cxDataGrid' + pcEditors.Name + IntToStr(pcEditors.Tag);
     Align := alClient;
     LookAndFeel.NativeStyle := True;
     LockedStateImageOptions.Enabled := True;
@@ -929,19 +964,19 @@ begin
     LockedStateImageOptions.Effect := lsieLight;
   end;
   { Create Grid Popup menu }
-  with TcxGridPopupMenu.Create(paGrid) do
+  with TcxGridPopupMenu.Create(paGrids) do
   begin
     Name := 'pmGrid' + pcEditors.Name + IntToStr(pcEditors.Tag);
-    Grid := cxGrid;
+    Grid := cxDataGrid;
   end;
   { Create Grid Level }
-  cxGridLevel := cxGrid.Levels.Add;
-  cxGridLevel.Name := 'cxLevel' + pcEditors.Name + IntToStr(pcEditors.Tag);
+  cxDataGridLevel := cxDataGrid.Levels.Add;
+  cxDataGridLevel.Name := 'cxDataLevel' + pcEditors.Name + IntToStr(pcEditors.Tag);
   { Create Grid View }
-  cxGridView := TcxGridDBTableView.Create(cxGridLevel);
-  with cxGridView do
+  cxDataGridView := TcxGridDBTableView.Create(cxDataGridLevel);
+  with cxDataGridView do
   begin
-    Name := 'cxView' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    Name := 'cxDataView' + pcEditors.Name + IntToStr(pcEditors.Tag);
     OptionsView.GroupByBox := False;
     OptionsView.Footer := True;
     OptionsCustomize.ColumnsQuickCustomization := True;
@@ -950,23 +985,94 @@ begin
     OptionsBehavior.IncSearch := True;
     OptionsBehavior.BestFitMaxRecordCount := 5;
     OptionsData.Inserting := False;
-    //OptionsData.Editing := False;
+    // OptionsData.Editing := False;
     OptionsData.Deleting := False;
     Styles.Content := dm.GridContent;
     Styles.ContentOdd := dm.GridAltRow;
     Styles.Header := dm.GridHeader;
-    Styles.OnGetContentStyle := onGetContentStyle;
-    OnCellDblClick := onDataGridDblClick;
+    Styles.onGetContentStyle := onGetContentStyle;
+    // OnCellDblClick := onDataGridDblClick;
   end;
   { Assign Grid View to Grid Level }
-  cxGridLevel.GridView := cxGridView;
+  cxDataGridLevel.GridView := cxDataGridView;
+  { Create Status Grid }
+  cxStatusGrid := TcxGrid.Create(Tab);
+  with cxStatusGrid do
+  begin
+    Parent := tsStatus;
+    Name := 'cxStatusGrid' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    Align := alClient;
+    LookAndFeel.NativeStyle := True;
+    LockedStateImageOptions.Enabled := True;
+    LockedStateImageOptions.ShowText := True;
+    LockedStateImageOptions.Effect := lsieLight;
+  end;
+  { Create Status Grid Level }
+  cxStatusGridLevel := cxStatusGrid.Levels.Add;
+  cxStatusGridLevel.Name := 'cxStatusLevel' + pcEditors.Name + IntToStr(pcEditors.Tag);
+  { Create Status Grid View }
+  cxStatusGridView := TcxGridTableView.Create(cxStatusGridLevel);
+  with cxStatusGridView do
+  begin
+    Name := 'cxStatusView' + pcEditors.Name + IntToStr(pcEditors.Tag);
+    OptionsView.GroupByBox := False;
+    OptionsBehavior.ImmediateEditor := False;
+    OptionsBehavior.IncSearch := True;
+    OptionsBehavior.BestFitMaxRecordCount := 5;
+    OptionsData.Inserting := False;
+    OptionsData.Editing := False;
+    OptionsData.Deleting := False;
+    Styles.Content := dm.GridContent;
+    Styles.ContentOdd := dm.GridAltRow;
+    Styles.Header := dm.GridHeader;
+    Styles.onGetContentStyle := onGetContentStyle;
+{$REGION 'Create Columsn'}
+    { Create image column }
+    Col := CreateColumn;
+    Col.Visible := False;
+    { Create image column }
+    Col := CreateColumn;
+    Col.Width := 24;
+    Col.Caption := '';
+    Col.PropertiesClass := TcxImageComboBoxProperties;
+    Col.Options.HorzSizing := False;
+    TcxImageComboBoxProperties(Col.Properties).Images := dm.imListSmall;
+    { Add OK status image }
+    colICB := TcxImageComboBoxProperties(Col.Properties).Items.Add;
+    colICB.ImageIndex := 0;
+    colICB.Value := 0;
+    { Add ERROR status image }
+    colICB := TcxImageComboBoxProperties(Col.Properties).Items.Add;
+    colICB.ImageIndex := 1;
+    colICB.Value := 1;
+    { Create status column }
+    Col := CreateColumn;
+    Col.Width := 450;
+    Col.Caption := 'Status';
+    { Create timestamp column }
+    Col := CreateColumn;
+    Col.Width := 150;
+    Col.Caption := 'Timestamp';
+    { Create duration column }
+    Col := CreateColumn;
+    Col.Width := 100;
+    Col.Caption := 'Duration';
+    Col.PropertiesClass := TcxTextEditProperties;
+    Col.HeaderAlignmentHorz := taRightJustify;
+    TcxTextEditProperties(Col.Properties).Alignment.Horz := taRightJustify;
+{$ENDREGION}
+    OnCellDblClick := onStatusGridDblClick;
+  end;
+  { Assign Grid View to Grid Level }
+  cxStatusGridLevel.GridView := cxStatusGridView;
+
   { Create editor splitter }
   Splitter := TSplitter.Create(Tab);
   with Splitter do
   begin
     Name := 'spEditor' + pcEditors.Name + IntToStr(pcEditors.Tag);
     Align := alBottom;
-    Beveled := True;
+    Beveled := False;
     Parent := Tab;
     Top := 0;
   end;
@@ -1018,7 +1124,7 @@ begin
       Margins.Top := 4;
       Margins.Right := 4;
       Margins.Bottom := 4;
-      Margins.Left := 0;     
+      Margins.Left := 0;
     end;
     pcSessions.ActivePage := Tab;
     { Find environment icon from INI file }
@@ -1026,7 +1132,8 @@ begin
     { Find Editor and DataGrid styles }
     Config := dm.GetConfigIniFile;
     try
-      Tab.ImageIndex := dm.getConnectionImage(IniFile.ReadInteger(SessionName, 'db_environment', -1));
+      Tab.ImageIndex := dm.getConnectionImage(IniFile.ReadInteger(SessionName,
+        'db_environment', -1));
       { Create schema browser }
       browserPanel := TPanel.Create(Tab);
       with browserPanel do
@@ -1070,33 +1177,32 @@ begin
         with FieldDefs do
         begin
           Clear;
-          Add('ID',ftAutoInc,0,False);
-          Add('ICON',ftInteger,0,False);
-          Add('PARENT',ftInteger,0,False);
-          Add('VALUE',ftString,100,False);
+          Add('ID', ftAutoInc, 0, False);
+          Add('ICON', ftInteger, 0, False);
+          Add('PARENT', ftInteger, 0, False);
+          Add('VALUE', ftString, 100, False);
         end;
         for i := 0 to FieldDefs.Count - 1 do
           FieldDefs[i].CreateField(memTable);
 
-
-(*        iField := TIntegerField.Create(memTable);
-        iField.FieldName := 'ID';
-        iField.DataSet := memTable;
-        iField.AutoGenerateValue := arAutoInc;
-        iField.FieldKind := fkInternalCalc;
-        iField := TIntegerField.Create(memTable);
-        iField.FieldName := 'ICON';
-        iField.DataSet := memTable;
-        iField.FieldKind := fkInternalCalc;
-        iField := TIntegerField.Create(memTable);
-        iField.FieldName := 'PARENT';
-        iField.DataSet := memTable;
-        iField.FieldKind := fkInternalCalc;
-        sField := TStringField.Create(memTable);
-        sField.FieldName := 'VALUE';
-        sField.DataSet := memTable;
-        sField.Size := 100;
-        sField.FieldKind := fkInternalCalc;  *)
+        (* iField := TIntegerField.Create(memTable);
+          iField.FieldName := 'ID';
+          iField.DataSet := memTable;
+          iField.AutoGenerateValue := arAutoInc;
+          iField.FieldKind := fkInternalCalc;
+          iField := TIntegerField.Create(memTable);
+          iField.FieldName := 'ICON';
+          iField.DataSet := memTable;
+          iField.FieldKind := fkInternalCalc;
+          iField := TIntegerField.Create(memTable);
+          iField.FieldName := 'PARENT';
+          iField.DataSet := memTable;
+          iField.FieldKind := fkInternalCalc;
+          sField := TStringField.Create(memTable);
+          sField.FieldName := 'VALUE';
+          sField.DataSet := memTable;
+          sField.Size := 100;
+          sField.FieldKind := fkInternalCalc; *)
         if not Exists then
           CreateTable;
       end;
@@ -1184,7 +1290,10 @@ begin
         AlignSplitter := salLeft;
         HotZoneStyleClass := TcxSimpleStyle;
         Control := browserPanel;
-        CloseSplitter;
+        if Config.ReadBool(secGeneral, 'ShowObjectInspector', False) then
+          OpenSplitter
+        else
+          CloseSplitter;
       end;
       PC := TcxPageControl.Create(Tab);
       with PC do
@@ -1238,7 +1347,7 @@ begin
           ItemIndex := 1;
       end;
       SynSQL.SQLDialect := GetSyntaxType(Meta.Connection.ProviderName);
-      AddSqlEditor(PC);      
+      AddSqlEditor(PC);
     finally
       IniFile.Free;
       Config.Free;
@@ -1272,7 +1381,7 @@ begin
   end;
   { Create new session }
   Session := TUniConnection.Create(Tab);
-//  Session2 := TUniConnection.Create(Tab);
+  // Session2 := TUniConnection.Create(Tab);
   IniFile := dm.GetSessionIniFile;
   try
     with Session do
@@ -1283,7 +1392,8 @@ begin
       ProviderName := IniFile.ReadString(SessionName, 'db_provider', '');
       Server := IniFile.ReadString(SessionName, 'db_server', '');
       Username := IniFile.ReadString(SessionName, 'db_user', '');
-      Password := String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'db_pass', '')), dm.encrypt_key));
+      Password := String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'db_pass', '')),
+        dm.encrypt_key));
       Provider := TUniUtils.GetProvider(Session);
       AutoCommit := IniFile.ReadBool(SessionName, 'db_auto_commit', False);
       if IniFile.ReadBool(SessionName, 'db_use_unicode', False) then
@@ -1299,16 +1409,17 @@ begin
         Database := IniFile.ReadString(SessionName, 'db_database', '')
       else
         Database := IniFile.ReadString(SessionName, 'db_user', '');
-      {Set default schema for Postgres}
+      { Set default schema for Postgres }
       if (Provider is TPostgreSQLUniProvider) and (SpecificOptions.Values['SCHEMA'] = '') then
         SpecificOptions.Values['SCHEMA'] := 'public';
-      {Check if SQLLite file exists}
+      { Check if SQLLite file exists }
       if (Provider is TSQLiteUniProvider) then
       begin
         SpecificOptions.Values['Direct'] := 'True';
         if not FileExists(Database) then
         begin
-          if MessageDlg('SQLite database not found! Create new database?', mtConfirmation, mbYesNo, 0, mbYes) = mrYes then
+          if MessageDlg('SQLite database not found! Create new database?', mtConfirmation, mbYesNo,
+            0, mbYes) = mrYes then
           begin
             try
               AssignFile(fSQLite, Database);
@@ -1322,23 +1433,29 @@ begin
       { Create SSH tunnef if needed }
       if Method = 1 then
       begin
-        dm.ConnectSSH(Tab, IniFile.ReadString(SessionName, 'ssh_hostname', ''), IniFile.ReadString(SessionName, 'ssh_port', '22'), IniFile.ReadString(SessionName, 'ssh_username', ''), String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'ssh_password', '')), dm.encrypt_key)),
-          String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'ssh_key', '')), dm.encrypt_key)), IniFile.ReadString(SessionName, 'ssh_listen_port', ''), IniFile.ReadString(SessionName, 'db_server', ''), IniFile.ReadString(SessionName, 'db_port', ''));
+        dm.ConnectSSH(Tab, IniFile.ReadString(SessionName, 'ssh_hostname', ''),
+          IniFile.ReadString(SessionName, 'ssh_port', '22'), IniFile.ReadString(SessionName,
+          'ssh_username', ''),
+          String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'ssh_password', '')),
+          dm.encrypt_key)), String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'ssh_key', '')
+          ), dm.encrypt_key)), IniFile.ReadString(SessionName, 'ssh_listen_port', ''),
+          IniFile.ReadString(SessionName, 'db_server', ''), IniFile.ReadString(SessionName,
+          'db_port', ''));
       end;
       { Assign params to Session2 }
-      (*Session2.Name := 'new' + Name;
-      Session2.LoginPrompt := LoginPrompt;
-      Session2.ProviderName := ProviderName;
-      Session2.Server := Server;
-      Session2.Username := Username;
-      Session2.Password := Password;
-      Session2.AutoCommit := AutoCommit;
-      Session2.SpecificOptions := SpecificOptions;
-      Session2.Port := Port;
-      Session2.Database := Database; *)
+      (* Session2.Name := 'new' + Name;
+        Session2.LoginPrompt := LoginPrompt;
+        Session2.ProviderName := ProviderName;
+        Session2.Server := Server;
+        Session2.Username := Username;
+        Session2.Password := Password;
+        Session2.AutoCommit := AutoCommit;
+        Session2.SpecificOptions := SpecificOptions;
+        Session2.Port := Port;
+        Session2.Database := Database; *)
       try
         Connected := True;
-        //Session2.Connected := True;
+        // Session2.Connected := True;
       except
         on E: Exception do
         begin
@@ -1367,9 +1484,11 @@ begin
   RootNode := nil;
   tableID := 0;
   Conn := GetSession(pcSessions.ActivePage.Caption);
-  if Conn = nil then Exit;
+  if Conn = nil then
+    Exit;
   TreeView := GetObjectInspector(Conn);
-  if TreeView = nil then Exit;
+  if TreeView = nil then
+    Exit;
   SearchEdit := GetSearchEdit(Conn);
   if SearchEdit = nil then
     Search := ''
@@ -1384,24 +1503,27 @@ begin
     begin
       if RootNode <> nil then
       begin
-        RootNode.Text := RootNode.Text + ' ('+ IntToStr(RootNode.Count) + ')';
+        RootNode.Text := RootNode.Text + ' (' + IntToStr(RootNode.Count) + ')';
         if Search <> '' then
           RootNode.Expand(False);
       end;
       RootNode := TreeView.Items.Add(nil, memTable.FieldByName('VALUE').Value);
       RootNode.ImageIndex := memTable.FieldByName('ICON').Value;
       RootNode.SelectedIndex := RootNode.ImageIndex;
-      if (memTable.FieldByName('VALUE').AsString = 'Tables') and (memTable.FieldByName('PARENT').IsNull) then
+      if (memTable.FieldByName('VALUE').AsString = 'Tables') and
+        (memTable.FieldByName('PARENT').IsNull) then
         tableID := memTable.FieldByName('ID').AsInteger;
     end
     else
     begin
-      if (Search = '') or (pos(LowerCase(Search), LowerCase(memTable.FieldByName('VALUE').AsString)) > 0) then
+      if (Search = '') or (pos(LowerCase(Search), LowerCase(memTable.FieldByName('VALUE').AsString)
+        ) > 0) then
       begin
         Node := TreeView.Items.AddChild(RootNode, memTable.FieldByName('VALUE').Value);
         Node.ImageIndex := memTable.FieldByName('ICON').Value;
         Node.SelectedIndex := RootNode.ImageIndex;
-        if (memTable.FieldByName('PARENT').AsInteger <> 0) and (memTable.FieldByName('PARENT').Value = tableID) then
+        if (memTable.FieldByName('PARENT').AsInteger <> 0) and
+          (memTable.FieldByName('PARENT').Value = tableID) then
           Node.HasChildren := True;
       end;
     end;
@@ -1409,7 +1531,7 @@ begin
   end;
   if RootNode <> nil then
   begin
-    RootNode.Text := RootNode.Text + ' ('+ IntToStr(RootNode.Count) + ')';
+    RootNode.Text := RootNode.Text + ' (' + IntToStr(RootNode.Count) + ')';
     if Search <> '' then
       RootNode.Expand(False);
   end;
@@ -1425,7 +1547,8 @@ var
   memTable: TSQLMemTable;
   Provider: TUniProvider;
 begin
-  if Conn = nil then Exit;
+  if Conn = nil then
+    Exit;
   TV := GetObjectInspector(Conn);
   TV.Items.Clear;
   Meta := TUniMetaData.Create(nil);
@@ -1445,14 +1568,13 @@ begin
     Meta.MetaDataKind := 'Tables';
     if (pos('/', Conn.Database) > 0) or (pos('\', Conn.Database) > 0) then
       Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database
+    else if Conn.SpecificOptions.Values['SCHEMA'] <> '' then
+    begin
+      Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database;
+      Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.SpecificOptions.Values['SCHEMA'];
+    end
     else
-      if Conn.SpecificOptions.Values['SCHEMA'] <> '' then
-      begin
-        Meta.Restrictions.Values['TABLE_CATALOG'] := Conn.Database;
-        Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.SpecificOptions.Values['SCHEMA'];
-      end
-      else
-        Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.Database;
+      Meta.Restrictions.Values['TABLE_SCHEMA'] := Conn.Database;
     Provider := TUniUtils.GetProvider(Conn);
     if Provider is TPostgreSQLUniProvider then
       Meta.Restrictions.Values['TABLE_TYPE'] := 'TABLE'
@@ -1547,8 +1669,9 @@ var
   Tab: TcxTabSheet;
   GridView: TcxGridDBTableView;
 begin
-  Tab := TcxTabSheet(TPopupMenu(TMenuItem(Sender).GetParentMenu).PopupComponent.GetParentComponent.GetParentComponent);
-  GridView := GetSQLGridView(Tab);
+  Tab := TcxTabSheet(TPopupMenu(TMenuItem(Sender).GetParentMenu)
+    .PopupComponent.GetParentComponent.GetParentComponent);
+  GridView := GetDataGridView(Tab);
   GridView.DataController.DataSource.AutoEdit := not TMenuItem(Sender).Checked;
   GridView.Navigator.Visible := not TMenuItem(Sender).Checked;
   GridView.OptionsData.Inserting := not TMenuItem(Sender).Checked;
@@ -1609,7 +1732,7 @@ end;
 
 procedure Tmain.FormCreate(Sender: TObject);
 begin
-  dm.Main := TMain(Sender);
+  dm.main := Tmain(Sender);
   if not DirectoryExists(GetSpecialFolderPath(CSIDL_LOCAL_APPDATA) + '\OneSQL\') then
   begin
     SetCurrentDir(GetSpecialFolderPath(CSIDL_LOCAL_APPDATA));
@@ -1659,7 +1782,8 @@ var
   i: Integer;
   P: TParams;
 begin
-  if Editor = nil then Exit;
+  if Editor = nil then
+    Exit;
   for i := 1 to maxEditors do
   begin
     if EditorParams[i].Editor = Editor then
@@ -1697,32 +1821,14 @@ begin
   Result := nil;
   for i := 0 to Control.ControlCount - 1 do
   begin
-    if (Control.Controls[i] is TcxButton) and (copy(Control.Controls[i].Name, 1, 12) = 'buCancelExec') then
+    if (Control.Controls[i] is TcxButton) and
+      (copy(Control.Controls[i].Name, 1, 12) = 'buCancelExec') then
     begin
       Result := TcxButton(Control.Controls[i]);
-      Break;
+      break;
     end;
     if Control.Controls[i] is TWinControl then
       Result := GetCancelButton(TWinControl(Control.Controls[i]));
-    if Assigned(Result) then
-      break;
-  end;
-end;
-
-function Tmain.GetResultLabel(Control: TWinControl): TLabel;
-var
-  i: Integer;
-begin
-  Result := nil;
-  for i := 0 to Control.ControlCount - 1 do
-  begin
-    if (Control.Controls[i] is TLabel) and (copy(Control.Controls[i].Name, 1, 8) = 'laResult') then
-    begin
-      Result := TLabel(Control.Controls[i]);
-      Break;
-    end;
-    if Control.Controls[i] is TWinControl then
-      Result := GetResultLabel(TWinControl(Control.Controls[i]));
     if Assigned(Result) then
       break;
   end;
@@ -1734,7 +1840,7 @@ var
   IniPos, FinPos: Integer;
   offset: Integer;
 begin
-  offset := length(Text) - length(TrimLeft(Text));
+  offset := Length(Text) - Length(TrimLeft(Text));
   CursorPos := CursorPos - offset;
   Text := Trim(Text);
   iPos := 1;
@@ -1745,14 +1851,14 @@ begin
       Inc(iPos, 2);
   until (iPos = 0) or (CursorPos < iPos - 1);
   if (iPos = 0) then
-    iPos := length(Text)
+    iPos := Length(Text)
   else
     Dec(iPos, 2);
   FinPos := iPos;
   IniPos := LastPos;
   Result := Trim(copy(Text, IniPos, FinPos - IniPos + 1));
-  if copy(Result, length(Result)) = ';' then
-    Result := copy(Result, 1, length(Result) - 1);
+  if copy(Result, Length(Result)) = ';' then
+    Result := copy(Result, 1, Length(Result) - 1);
 end;
 
 function Tmain.GetMetaData: TUniMetaData;
@@ -1793,10 +1899,12 @@ var
   Tab: TcxTabSheet;
 begin
   Result := nil;
-  if Conn = nil then Exit;
+  if Conn = nil then
+    Exit;
   Tab := TcxTabSheet(Conn.Owner);
-  if Tab = nil then Exit;
-  Result := FindComponent('edSearch'+Tab.Name) as TEdit;
+  if Tab = nil then
+    Exit;
+  Result := FindComponent('edSearch' + Tab.Name) as TEdit;
 end;
 
 function Tmain.GetObjectInspector(Conn: TUniConnection): TcxTreeView;
@@ -1805,7 +1913,8 @@ var
   i, j: Integer;
 begin
   Result := nil;
-  if Conn = nil then Exit;
+  if Conn = nil then
+    Exit;
   Tab := TcxTabSheet(Conn.Owner);
   if Tab = nil then
     Exit;
@@ -1817,7 +1926,7 @@ begin
         if TPanel(Tab.Controls[i]).Controls[j] is TcxTreeView then
         begin
           Result := TcxTreeView(TPanel(Tab.Controls[i]).Controls[j]);
-          Break;
+          break;
         end;
     end;
   end;
@@ -1828,7 +1937,7 @@ var
   i: Integer;
 begin
   Result := nil;
-  for i := 0 to Tab.ComponentCount -1 do
+  for i := 0 to Tab.ComponentCount - 1 do
     if Tab.Components[i] is TSQLMemTable then
     begin
       Result := TSQLMemTable(Tab.Components[i]);
@@ -1847,7 +1956,8 @@ begin
     Exit;
   for i := 0 to Tab.ComponentCount - 1 do
   begin
-    if (Tab.Components[i] is TUniConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'con') and (Tab.Components[i].Tag = 0) then
+    if (Tab.Components[i] is TUniConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'con') and
+      (Tab.Components[i].Tag = 0) then
     begin
       Result := TUniConnection(Tab.Components[i]);
       break;
@@ -1855,24 +1965,24 @@ begin
   end;
 end;
 
-(*function Tmain.GetNewSession(SessionName: String): TUniConnection;
-var
+(* function Tmain.GetNewSession(SessionName: String): TUniConnection;
+  var
   Tab: TcxTabSheet;
   i: Integer;
-begin
+  begin
   Result := nil;
   Tab := GetSessionTab(SessionName);
   if Tab = nil then
-    Exit;
+  Exit;
   for i := 0 to Tab.ComponentCount - 1 do
   begin
-    if (Tab.Components[i] is TUniConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'new') then
-    begin
-      Result := TUniConnection(Tab.Components[i]);
-      break;
-    end;
+  if (Tab.Components[i] is TUniConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'new') then
+  begin
+  Result := TUniConnection(Tab.Components[i]);
+  break;
   end;
-end; *)
+  end;
+  end; *)
 
 function Tmain.GetSessionTab(SessionName: String): TcxTabSheet;
 var
@@ -1899,7 +2009,7 @@ begin
     if Control.Controls[i] is TSynEdit then
     begin
       Result := TSynEdit(Control.Controls[i]);
-      Break;
+      break;
     end;
     Result := GetSQLEditor(TWinControl(Control.Controls[i]));
     if Assigned(Result) then
@@ -1926,7 +2036,7 @@ begin
   end;
 end;
 
-function Tmain.GetSQLGridView(Control: TWinControl): TcxGridDBTableView;
+function Tmain.GetDataGridView(Control: TWinControl): TcxGridDBTableView;
 var
   i: Integer;
 begin
@@ -1935,11 +2045,37 @@ begin
   begin
     if Control.Controls[i] is TcxGrid then
     begin
-      Result := TcxGridDBTableView(TcxGrid(Control.Controls[i]).ActiveView);
-      break;
+      if TcxGrid(Control.Controls[i]).ActiveView is TcxGridDBTableView then
+      begin
+        Result := TcxGridDBTableView(TcxGrid(Control.Controls[i]).ActiveView);
+        break;
+      end;
     end;
     if Control.Controls[i] is TWinControl then
-      Result := GetSQLGridView(TWinControl(Control.Controls[i]));
+      Result := GetDataGridView(TWinControl(Control.Controls[i]));
+    if Assigned(Result) then
+      break;
+  end;
+end;
+
+function Tmain.GetStatusGridView(Control: TWinControl): TcxGridTableView;
+var
+  i: Integer;
+begin
+  Result := nil;
+  for i := 0 to Control.ControlCount - 1 do
+  begin
+    if Control.Controls[i] is TcxGrid then
+    begin
+      if (TcxGrid(Control.Controls[i]).ActiveView is TcxGridTableView) and
+        not(TcxGrid(Control.Controls[i]).ActiveView is TcxGridDBTableView) then
+      begin
+        Result := TcxGridTableView(TcxGrid(Control.Controls[i]).ActiveView);
+        break;
+      end;
+    end;
+    if Control.Controls[i] is TWinControl then
+      Result := GetStatusGridView(TWinControl(Control.Controls[i]));
     if Assigned(Result) then
       break;
   end;
@@ -2008,7 +2144,8 @@ begin
     end;
     SQLiteLogCon.Database := sLogDB;
     SQLiteLogCon.Connect;
-    qLog.SQL.Text := 'create table if not exists sql_history (id INTEGER PRIMARY KEY AUTOINCREMENT, sess TEXT, statement  TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP);';
+    qLog.SQL.Text :=
+      'create table if not exists sql_history (id INTEGER PRIMARY KEY AUTOINCREMENT, sess TEXT, statement  TEXT, ts DATETIME DEFAULT CURRENT_TIMESTAMP);';
     qLog.Execute;
   except
     on E: EDatabaseError do
@@ -2087,9 +2224,9 @@ begin
 
       dm.LineEnding := ReadInteger(secGeneral, 'LineEnding', 0);
       sdSQL.InitialDir := ReadString(secGeneral, 'SqlDirectory', '');
-      if ReadBool(secDataGrid, 'NullStringBold', false) then
+      if ReadBool(secDataGrid, 'NullStringBold', False) then
         dm.NullString.Font.Style := dm.NullString.Font.Style + [fsBold];
-      if ReadBool(secDataGrid, 'NullStringItalic', false) then
+      if ReadBool(secDataGrid, 'NullStringItalic', False) then
         dm.NullString.Font.Style := dm.NullString.Font.Style + [fsItalic];
     end;
   finally
@@ -2114,16 +2251,19 @@ begin
   end;
 end;
 
-procedure Tmain.Log(Sess: String; Statement: String);
+function Tmain.Log(Sess: String; Statement: String): Int64;
 var
   sInsert: String;
 begin
   Statement := Trim(Statement);
-  sInsert := 'insert into sql_history (sess, statement) values ('''+ Sess + ''','+ QuotedStr(Statement) +');';
+  sInsert := 'insert into sql_history (sess, statement) values (''' + Sess + ''',' +
+    QuotedStr(Statement) + ');';
   try
     qLog.SQL.Text := sInsert;
     qLog.Execute;
+    Result := qLog.LastInsertId;
   except
+    Result := 0;
   end;
 end;
 
@@ -2218,7 +2358,7 @@ var
   CancelBtn: TcxButton;
 begin
   lSelect := False;
-  GridView := GetSQLGridView(Tab);
+  GridView := GetDataGridView(Tab);
   if not Assigned(GridView) then
   begin
     ShowMessage('ERROR! Data Grid not found!!!');
@@ -2238,21 +2378,22 @@ begin
   SQL := GetUniSQL(Tab);
   if SQL.Connection = nil then
     SQL.Connection := Conn;
-  if SQL.Executing then Exit;
+  if SQL.Executing then
+    Exit;
   DataSet := TUniQuery(GridView.DataController.DataSource.DataSet);
   if DataSet.Tag = 1 then
   begin
-//    DataSet.Connection.Tag := 1;
-//    temp_conn_name := DataSet.Connection.Name;
-//    DataSet.Connection.Name := DataSet.Connection.Name + '_old';
-//    Conn := CreateSession(pcSessions.ActivePage.Caption);
-//    Conn := GetNewSession(pcSessions.ActivePage.Caption);
-//    newDataSet.SQL := DataSet.SQL;
-//    DataSet := TUniQuery.Create(Tab);
-//    if not Conn.AutoCommit then
-//      DataSet.Transaction := Conn.DefaultTransaction;
-//    DataSet.Connection := Conn;
-//    GridView.DataController.DataSource.DataSet := DataSet;
+    // DataSet.Connection.Tag := 1;
+    // temp_conn_name := DataSet.Connection.Name;
+    // DataSet.Connection.Name := DataSet.Connection.Name + '_old';
+    // Conn := CreateSession(pcSessions.ActivePage.Caption);
+    // Conn := GetNewSession(pcSessions.ActivePage.Caption);
+    // newDataSet.SQL := DataSet.SQL;
+    // DataSet := TUniQuery.Create(Tab);
+    // if not Conn.AutoCommit then
+    // DataSet.Transaction := Conn.DefaultTransaction;
+    // DataSet.Connection := Conn;
+    // GridView.DataController.DataSource.DataSet := DataSet;
     Conn.Disconnect;
     Conn.Connect;
     DataSet.Tag := 0;
@@ -2260,8 +2401,9 @@ begin
   if DataSet.Connection = nil then
     DataSet.Connection := Conn;
   DataSet.UnPrepare;
-  if (DataSet.Executing) or (DataSet.Fetching) then Exit;
-  { Get Cancel button and enable it}
+  if (DataSet.Executing) or (DataSet.Fetching) then
+    Exit;
+  { Get Cancel button and enable it }
   CancelBtn := GetCancelButton(Tab);
   if CancelBtn <> nil then
     CancelBtn.Enabled := True;
@@ -2274,7 +2416,8 @@ begin
   sql_text := GetCursorSQL(MemoSQL.Lines.Text, MemoSQL.SelStart);
   if Trim(sql_text) = '' then
     Exit;
-  if (LowerCase(copy(sql_text, 1, 4)) = 'sele') or (LowerCase(copy(sql_text, 1, 4)) = 'show') or (LowerCase(copy(sql_text, 1, 4)) = 'desc') then
+  if (LowerCase(copy(sql_text, 1, 4)) = 'sele') or (LowerCase(copy(sql_text, 1, 4)) = 'show') or
+    (LowerCase(copy(sql_text, 1, 4)) = 'desc') then
     lSelect := True;
   DataSet.SQL.Text := sql_text;
   SQL.SQL.Text := sql_text;
@@ -2334,7 +2477,7 @@ begin
   end;
   if Vars.Count > 0 then
   begin
-    if paramForm.ShowModal = mrOk then
+    if paramForm.ShowModal = mrOK then
     begin
       InitParams(Params);
       with paramForm do
@@ -2350,7 +2493,8 @@ begin
           if Params[i + 1].ParamType = 'Substitution' then
           begin
             if Params[i + 1].Active = '1' then
-              DataSet.MacroByName(Params[i + 1].ParamName).Value := VarToStr(Params[i + 1].ParamValue)
+              DataSet.MacroByName(Params[i + 1].ParamName).Value :=
+                VarToStr(Params[i + 1].ParamValue)
             else
               DataSet.MacroByName(Params[i + 1].ParamName).Value := '';
           end
@@ -2358,7 +2502,8 @@ begin
           begin
             if lSelect then
             begin
-              DataSet.ParamByName(Params[i + 1].ParamName).DataType := GetDataType(Params[i + 1].ParamType);
+              DataSet.ParamByName(Params[i + 1].ParamName).DataType :=
+                GetDataType(Params[i + 1].ParamType);
               if Params[i + 1].Active = '1' then
                 DataSet.ParamByName(Params[i + 1].ParamName).Value := ParamValue(Params[i + 1])
               else
@@ -2366,7 +2511,8 @@ begin
             end
             else
             begin
-              SQL.ParamByName(Params[i + 1].ParamName).DataType := GetDataType(Params[i + 1].ParamType);
+              SQL.ParamByName(Params[i + 1].ParamName).DataType :=
+                GetDataType(Params[i + 1].ParamType);
               if Params[i + 1].Active = '1' then
                 SQL.ParamByName(Params[i + 1].ParamName).Value := ParamValue(Params[i + 1])
               else
@@ -2390,15 +2536,11 @@ procedure Tmain.ExecuteSQLCallback(EditorTab: TcxTabSheet; Query: TUniQuery; SQL
   GridView: TcxGridDBTableView; Error: String);
 var
   i: Integer;
+  iHistory: Int64;
   CancelBtn: TcxButton;
-  ResultLabel: TLabel;
-  sCommand: String;
-  sSqlText: String;
-  sSession: String;
+  sCommand, sSqlText, sSession, sStatus: String;
 begin
   try
-    ResultLabel := GetResultLabel(EditorTab);
-    ResultLabel.Caption := '';
     if (SQL <> nil) then
     begin
       sSqlText := SQL.SQL.Text;
@@ -2406,24 +2548,29 @@ begin
       for i := 1 to Length(SQL.SQL.Text) do
         if SQL.SQL.Text[i].IsWhiteSpace then
           break;
-      sCommand := copy(SQL.SQL.Text, 1, i-1);
-      if sCommand  = 'create' then
-        ResultLabel.Caption := 'Object successfully created'
+      sCommand := copy(SQL.SQL.Text, 1, i - 1);
+      if sCommand = 'create' then
+        sStatus := 'Object successfully created'
       else if sCommand = 'alter' then
-        ResultLabel.Caption := 'Object successfully altered'
+        sStatus := 'Object successfully altered'
       else if sCommand = 'drop' then
-        ResultLabel.Caption := 'Object successfully droped'
+        sStatus := 'Object successfully droped'
       else if sCommand = 'insert' then
-        ResultLabel.Caption := IntToStr(SQL.RowsAffected) + ' rows inserted'
+        sStatus := IntToStr(SQL.RowsAffected) + ' rows inserted'
       else if sCommand = 'update' then
-        ResultLabel.Caption := IntToStr(SQL.RowsAffected) + ' rows updated'
+        sStatus := IntToStr(SQL.RowsAffected) + ' rows updated'
       else if sCommand = 'delete' then
-        ResultLabel.Caption := IntToStr(SQL.RowsAffected) + ' rows deleted';
+        sStatus := IntToStr(SQL.RowsAffected) + ' rows deleted';
+    end
+    else
+    begin
+      sStatus := 'Query successfully executed';
     end;
+
     if (Query <> nil) and (Query.Active) then
     begin
       sSqlText := Query.SQL.Text;
-      sSession := TcxTabSheet(query.Connection.Owner).Caption;
+      sSession := TcxTabSheet(Query.Connection.Owner).Caption;
       GridView.DataController.CreateAllItems;
       for i := 0 to GridView.ColumnCount - 1 do
       begin
@@ -2432,33 +2579,71 @@ begin
           GridView.Columns[i].Summary.FooterKind := skCount;
           GridView.Columns[i].Summary.FooterFormat := '#,##0';
         end;
-        if (GridView.Columns[i].DataBinding.Field is TBlobField) and (TBlobField(GridView.Columns[i].DataBinding.Field).BlobType = ftBlob) then
+        if (GridView.Columns[i].DataBinding.Field is TBlobField) and
+          (TBlobField(GridView.Columns[i].DataBinding.Field).BlobType = ftBlob) then
         begin
           GridView.Columns[i].PropertiesClass := TcxBlobEditProperties;
           TcxBlobEditProperties(GridView.Columns[i].Properties).BlobEditKind := bekMemo;
           TcxBlobEditProperties(GridView.Columns[i].Properties).MemoScrollBars := ssVertical;
         end;
 
-        GridView.Columns[i].OnGetDisplayText := onGetDisplayText;
+        GridView.Columns[i].onGetDisplayText := onGetDisplayText;
         GridView.Columns[i].MinWidth := 35;
         if GridView.Columns[i].Width > 150 then
           GridView.Columns[i].Width := 150;
       end;
     end;
-    if ResultLabel.Caption = '' then
-      ResultLabel.Caption := EditorTab.Hint
-    else
-      ResultLabel.Caption := ResultLabel.Caption + ', ' + EditorTab.Hint;
-    Log(sSession, sSqlText);
+    iHistory := Log(sSession, sSqlText);
+    AddStatus(EditorTab, sStatus, Error, iHistory);
+    { Focus proper Result tab }
+    for i := 0 to TcxPageControl(GridView.Control.Parent.Parent).PageCount - 1 do
+    begin
+      if ((TcxPageControl(GridView.Control.Parent.Parent).Pages[i].Caption = 'Data') and
+        (Error = '')) or ((copy(TcxPageControl(GridView.Control.Parent.Parent).Pages[i].Caption, 1,
+        6) = 'Status') and (Error <> '')) then
+      begin
+        TcxPageControl(GridView.Control.Parent.Parent).ActivePage :=
+          TcxPageControl(GridView.Control.Parent.Parent).Pages[i];
+        break;
+      end;
+    end;
   finally
     GridView.EndUpdate;
-    { Get Cancel button and enable it}
+    { Get Cancel button and enable it }
     CancelBtn := GetCancelButton(EditorTab);
     if CancelBtn <> nil then
       CancelBtn.Enabled := False;
   end;
+end;
+
+procedure Tmain.AddStatus(EditorTab: TcxTabSheet; Status: String; Error: String; HistoryID: Int64);
+var
+  cxStatusGridView: TcxGridTableView;
+  StatusRecNo: Integer;
+begin
+  cxStatusGridView := GetStatusGridView(EditorTab);
+  StatusRecNo := cxStatusGridView.DataController.AppendRecord;
+  cxStatusGridView.DataController.Values[StatusRecNo, 0] := HistoryID;
   if Error <> '' then
-    ShowMessage(Error);
+  begin
+    cxStatusGridView.DataController.Values[StatusRecNo, 1] := 1;
+    cxStatusGridView.DataController.Values[StatusRecNo, 2] := Trim(Error);
+    TcxTabSheet(cxStatusGridView.Control.Parent).ImageIndex := 1;
+    TcxTabSheet(cxStatusGridView.Control.Parent).Caption := 'Status (Error)';
+  end
+  else
+  begin
+    cxStatusGridView.DataController.Values[StatusRecNo, 1] := 0;
+    cxStatusGridView.DataController.Values[StatusRecNo, 2] := Trim(Status);
+    TcxTabSheet(cxStatusGridView.Control.Parent).ImageIndex := 0;
+    TcxTabSheet(cxStatusGridView.Control.Parent).Caption := 'Status';
+    if EditorTab.Hint <> '' then
+      TcxTabSheet(cxStatusGridView.Control.Parent).Caption :=
+        TcxTabSheet(cxStatusGridView.Control.Parent).Caption + ' (' + EditorTab.Hint + ')';
+  end;
+  cxStatusGridView.DataController.Values[StatusRecNo, 3] := DateTimeToStr(now);
+  cxStatusGridView.DataController.Values[StatusRecNo, 4] := EditorTab.Hint;
+  cxStatusGridView.DataController.PostEditingData;
 end;
 
 procedure Tmain.ExportToFile(Format: string; DisableStyle: Boolean = False);
@@ -2466,7 +2651,7 @@ var
   Grid: TcxGridDBTableView;
   FileName: string;
 begin
-  sdExport.DefaultExt := LowerCase(Format) ;
+  sdExport.DefaultExt := LowerCase(Format);
   if sdExport.DefaultExt = 'xls' then
     sdExport.Filter := 'Excel Files|*.xls'
   else if sdExport.DefaultExt = 'csv' then
@@ -2477,14 +2662,14 @@ begin
     sdExport.Filter := 'JSON Files|*.json'
   else
     Exit;
-  Grid := GetSQLGridView(GetActiveEditorPC.ActivePage);
+  Grid := GetDataGridView(GetActiveEditorPC.ActivePage);
   if Grid = nil then
   begin
     ShowMessage('Error! Can''t find data grid!');
     Exit;
   end;
   try
-//    Grid.BeginUpdate(lsimImmediate);
+    // Grid.BeginUpdate(lsimImmediate);
     if DisableStyle then
       Grid.Styles.ContentOdd := nil;
     if sdExport.Execute then
@@ -2497,7 +2682,8 @@ begin
         ExportGridToHTML(sdExport.FileName, TcxGrid(Grid.Control))
       else if sdExport.DefaultExt = 'json' then
         ExportToJson(sdExport.FileName, Grid);
-      if MessageDlg('Open ' + ExtractFileName(sdExport.FileName) + '?', mtConfirmation, mbYesNo, 0, mbYes) = mrYes then
+      if MessageDlg('Open ' + ExtractFileName(sdExport.FileName) + '?', mtConfirmation, mbYesNo, 0,
+        mbYes) = mrYes then
       begin
         FileName := sdExport.FileName;
         if dm.GetWineAvail() then
@@ -2508,7 +2694,7 @@ begin
   finally
     if DisableStyle then
       Grid.Styles.ContentOdd := dm.GridAltRow;
-    //Grid.EndUpdate;
+    // Grid.EndUpdate;
   end;
 end;
 
@@ -2523,10 +2709,10 @@ begin
   try
     json.Add('{');
     json.Add(#9 + '"data": [');
-    for i := 0 to GridView.DataController.RecordCount -1 do
+    for i := 0 to GridView.DataController.RecordCount - 1 do
     begin
       json_row := #9 + #9 + '{';
-      for j := 0 to GridView.VisibleItemCount -1 do
+      for j := 0 to GridView.VisibleItemCount - 1 do
       begin
         cell_value := GridView.DataController.Values[i, j];
         json_row := json_row + '"' + GridView.VisibleItems[j].DataBinding.Item.Caption + '": ';
@@ -2536,12 +2722,12 @@ begin
           json_row := json_row + 'null'
         else
           json_row := json_row + '"' + VarToStr(cell_value) + '"';
-        if j <> GridView.VisibleItemCount -1 then
+        if j <> GridView.VisibleItemCount - 1 then
           json_row := json_row + ',';
       end;
       json_row := json_row + '}';
-      if i <> GridView.DataController.RecordCount -1 then
-        json_row := json_row +',';
+      if i <> GridView.DataController.RecordCount - 1 then
+        json_row := json_row + ',';
       json.Add(json_row);
     end;
     json.Add(#9 + ']');
@@ -2558,7 +2744,8 @@ var
 begin
   if pos('*', TcxPageControl(Sender).Pages[ATabIndex].Caption) > 0 then
   begin
-    mr := MessageDlg('Save changes for "' + TcxPageControl(Sender).Pages[ATabIndex].Caption + '"?', mtConfirmation, mbYesNoCancel, 0, mbYes);
+    mr := MessageDlg('Save changes for "' + TcxPageControl(Sender).Pages[ATabIndex].Caption + '"?',
+      mtConfirmation, mbYesNoCancel, 0, mbYes);
     case mr of
       mrCancel:
         begin
@@ -2619,8 +2806,7 @@ begin
   EditorButtonState;
 end;
 
-procedure Tmain.SearchKeyDown(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
+procedure Tmain.SearchKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   tiSearch.Enabled := False;
   tiSearch.Enabled := True;

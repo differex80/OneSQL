@@ -98,6 +98,8 @@ type
     cbLineEnding: TComboBox;
     Label23: TLabel;
     buSqlDirectory: TcxButton;
+    GroupBox6: TGroupBox;
+    cboxShowObjectInspector: TCheckBox;
     procedure buFontEditorClick(Sender: TObject);
     procedure buSaveClick(Sender: TObject);
     procedure ColorEditInitPopup(Sender: TObject);
@@ -176,6 +178,7 @@ begin
       WriteString(secGeneral, 'SqlDirectory', edSqlDirectory.Text);
       WriteInteger(secGeneral, 'LineEnding', cbLineEnding.ItemIndex);
       dm.LineEnding := cbLineEnding.ItemIndex;
+      WriteBool(secGeneral, 'ShowObjectInspector', cboxShowObjectInspector.Checked);
       {DataGrid}
       WriteString(secDataGrid, 'FontName', buFontGrid.Font.Name);
       WriteInteger(secDataGrid, 'FontSize', buFontGrid.Font.Size);
@@ -303,6 +306,7 @@ begin
       {General}
       edSqlDirectory.Text := ReadString(secGeneral, 'SqlDirectory', '');
       cbLineEnding.ItemIndex := dm.Lineending;
+      cboxShowObjectInspector.Checked := ReadBool(secGeneral, 'ShowObjectInspector', False);
       {DataGrid}
       buFontGrid.Font.Name := ReadString(secDataGrid, 'FontName', 'Tahoma');
       buFontGrid.Font.Size := ReadInteger(secDataGrid, 'FontSize', 10);

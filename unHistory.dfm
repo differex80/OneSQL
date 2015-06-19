@@ -70,8 +70,6 @@ object history: Thistory
       Height = 517
       Align = alClient
       TabOrder = 0
-      ExplicitLeft = 6
-      ExplicitTop = 6
       object tvHistory: TcxGridDBTableView
         Navigator.Buttons.CustomButtons = <>
         OnCellDblClick = tvHistoryCellDblClick

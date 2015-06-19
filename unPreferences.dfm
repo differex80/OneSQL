@@ -133,14 +133,27 @@ object Preferences: TPreferences
             OnClick = buSqlDirectoryClick
           end
         end
+        object GroupBox6: TGroupBox
+          Left = 0
+          Top = 97
+          Width = 310
+          Height = 56
+          Align = alTop
+          Caption = ' Layout '
+          TabOrder = 1
+          object cboxShowObjectInspector: TCheckBox
+            Left = 16
+            Top = 24
+            Width = 272
+            Height = 17
+            Caption = 'Show Object Inspector'
+            TabOrder = 0
+          end
+        end
       end
       object tsEditor: TcxTabSheet
         BorderWidth = 4
         Caption = 'SQL Editor'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox1: TGroupBox
           Left = 0
           Top = 0
@@ -149,8 +162,6 @@ object Preferences: TPreferences
           Align = alTop
           Caption = ' Font '
           TabOrder = 0
-          ExplicitLeft = -3
-          ExplicitTop = 3
           object Label7: TLabel
             Left = 32
             Top = 58

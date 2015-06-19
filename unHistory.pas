@@ -46,6 +46,7 @@ type
     { Private declarations }
   public
     { Public declarations }
+    iLookupId: Int64;
     procedure ExecuteHistory(vSearch: Variant);
   end;
 
@@ -121,6 +122,10 @@ end;
 procedure Thistory.FormShow(Sender: TObject);
 begin
   ExecuteHistory('');
+  if iLookupId <> 0 then
+    if not qHistory.Locate('id', iLookupId, []) then
+      MessageDlg('Query statement not found in history log! All logs will be displayed.', mtWarning, [mbOK], 0);
+  iLookupId := 0;
 end;
 
 procedure Thistory.tiExecuteHistoryTimer(Sender: TObject);

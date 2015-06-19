@@ -226,6 +226,7 @@ object main: Tmain
       Top = 0
       Width = 34
       Height = 34
+      Hint = 'Query statement history log'
       Align = alRight
       Enabled = False
       OptionsImage.ImageIndex = 18

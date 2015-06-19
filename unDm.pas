@@ -416,7 +416,7 @@ begin
           W^.EditorTab.Hint := '';
           iTime := now;
           W^.Query.Execute;
-          W^.EditorTab.Hint := 'Execution time: ' + FormatFloat('0.000', MilliSecondsBetween(now, iTime) /1000) + ' sec';
+          W^.EditorTab.Hint := FormatFloat('0.000', MilliSecondsBetween(now, iTime) /1000) + ' sec';
 //          W^.Query.First;
         end;
 
@@ -425,7 +425,7 @@ begin
           W^.EditorTab.Hint := '';
           iTime := now;
           W^.SQL.Execute;
-          W^.EditorTab.Hint := 'Execution time: ' + FormatFloat('0.000', MilliSecondsBetween(now, iTime) /1000) + ' sec';
+          W^.EditorTab.Hint := FormatFloat('0.000', MilliSecondsBetween(now, iTime) /1000) + ' sec';
         end;
       except on E: Exception do
         begin
