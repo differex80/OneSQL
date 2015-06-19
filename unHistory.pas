@@ -10,7 +10,7 @@ uses
   cxGridLevel, cxClasses, cxGridCustomView, cxGridCustomTableView,
   cxGridTableView, cxGridDBTableView, cxGrid, SynEdit, SynDBEdit,
   SynEditHighlighter, SynHighlighterSQL, Vcl.Menus, Vcl.StdCtrls, cxButtons,
-  Vcl.ExtCtrls, cxContainer, cxTextEdit;
+  Vcl.ExtCtrls, cxContainer, cxTextEdit, System.UITypes;
 
 type
   Thistory = class(TForm)
