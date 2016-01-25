@@ -1837,6 +1837,7 @@ begin
     CreateDir('OneSQL');
   end;
   dm.AppDataFolder := GetSpecialFolderPath(CSIDL_LOCAL_APPDATA) + '\OneSQL\';
+  dm.keyStorage.Path := dm.AppDataFolder;
   dm.application_name := Application.ExeName;
   buCancelExec.OnClick := CancelExecute;
   InitLogDB;
