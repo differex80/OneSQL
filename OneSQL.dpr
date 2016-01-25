@@ -19,7 +19,7 @@ begin
   Application.CreateForm(Tdm, dm);
   Application.CreateForm(Tmain, main);
   Application.CreateForm(TparamForm, paramForm);
-  Application.CreateForm(THistory, history);
+  Application.CreateForm(Thistory, history);
   Application.CreateForm(TsessionManager, sessionManager);
   //  Application.CreateForm(TsessionForm, sessionForm);
   Application.Run;

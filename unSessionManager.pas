@@ -6,7 +6,7 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, cxGraphics, cxControls, cxLookAndFeels, cxLookAndFeelPainters,
   cxCustomData, cxStyles, cxTL, cxTLdxBarBuiltInMenu, Menus, StdCtrls,
-  cxButtons, cxInplaceContainer, ExtCtrls, UniProvider, IniFiles, ComCtrls,
+  cxButtons, cxInplaceContainer, ExtCtrls, IniFiles, ComCtrls,
   cxContainer, cxTreeView, ActnList, ImgList, cxEdit, System.UITypes, System.Types,
   System.Actions;
 
@@ -127,10 +127,10 @@ begin
     for i := 0 to Sections.Count -1 do
     begin
       sDatabase := IniFile.ReadString(Sections.Strings[i], 'db_provider', '');
-      ParentNode := GetNodeByText(tvSessions, sDatabase, True);
+      ParentNode := GetNodeByText(tvSessions, dm.DbDriverList.Values[sDatabase], True);
       if not Assigned(ParentNode) then
       begin
-        ParentNode := tvSessions.Items.Add(nil, sDatabase);
+        ParentNode := tvSessions.Items.Add(nil, dm.DbDriverList.Values[sDatabase]);
         ParentNode.ImageIndex := 3;
         ParentNode.SelectedIndex := ParentNode.ImageIndex;
       end;

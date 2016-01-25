@@ -78,6 +78,10 @@ object Preferences: TPreferences
       object tsGeneral: TcxTabSheet
         BorderWidth = 4
         Caption = 'General'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object GroupBox5: TGroupBox
           Left = 0
           Top = 0
@@ -154,6 +158,10 @@ object Preferences: TPreferences
       object tsEditor: TcxTabSheet
         BorderWidth = 4
         Caption = 'SQL Editor'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object GroupBox1: TGroupBox
           Left = 0
           Top = 0
@@ -579,6 +587,10 @@ object Preferences: TPreferences
       object tsGrid: TcxTabSheet
         BorderWidth = 4
         Caption = 'Data Grid'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object GroupBox3: TGroupBox
           Left = 0
           Top = 0
@@ -705,6 +717,10 @@ object Preferences: TPreferences
         Caption = 'About'
         ImageIndex = 2
         OnResize = tsAboutResize
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object paInfoLeft: TPanel
           Left = 0
           Top = 0

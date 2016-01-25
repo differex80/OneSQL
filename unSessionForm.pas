@@ -4,16 +4,17 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, DB, DBAccess, Uni, StdCtrls, UniProvider, cxGraphics, cxLookAndFeels,
+  Dialogs, DB, DBAccess, StdCtrls, cxGraphics, cxLookAndFeels,
   cxLookAndFeelPainters, Menus, cxButtons, ActnList, IniFiles,
-  System.UITypes, System.Types, CHILKATSSHLib_TLB,
+  System.UITypes, System.Types, ScSshClient, ScSSHChannel,
   unEncrypt, cxControls, cxContainer, cxEdit, cxTextEdit,
   cxMaskEdit, cxDropDownEdit, cxColorComboBox, cxImageComboBox, OleCtrls,
-  cxGroupBox, System.Actions;
+  cxGroupBox, System.Actions, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
+  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Comp.Client;
 
 type
   TsessionForm = class(TForm)
-    Session: TUniConnection;
     buSave: TcxButton;
     buTest: TcxButton;
     gbConn: TcxGroupBox;
@@ -60,8 +61,9 @@ type
     laEnvironment: TLabel;
     cbAutoCommit: TCheckBox;
     cbUseUnicode: TCheckBox;
+    Connection: TFDConnection;
+    fdmanager: TFDManager;
     procedure FormCreate(Sender: TObject);
-    procedure cxButton1Click(Sender: TObject);
     procedure cbProviderChange(Sender: TObject);
     procedure acCancelExecute(Sender: TObject);
     procedure acTestExecute(Sender: TObject);
@@ -70,6 +72,8 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure cboxKeyClick(Sender: TObject);
     procedure acLoadKeyExecute(Sender: TObject);
+    procedure cbProviderDrawItem(Control: TWinControl; Index: Integer;
+      Rect: TRect; State: TOwnerDrawState);
   private
     { Private declarations }
   public
@@ -126,7 +130,7 @@ begin
         WriteString(session_name, 'ssh_key', String(Encrypt(AnsiString(edSshKey.Text), dm.encrypt_key)));
         WriteString(session_name, 'ssh_listen_port', edSshListenPort.Text);
       end;
-      WriteString(session_name, 'db_provider', cbProvider.Text);
+      WriteString(session_name, 'db_provider', cbProvider.Items.Names[cbProvider.ItemIndex]);
       WriteString(session_name, 'db_server', edServer.Text);
       WriteString(session_name, 'db_user', edUser.Text);
       WriteString(session_name, 'db_pass', String(Encrypt(AnsiString(edPass.Text), dm.encrypt_key)));
@@ -146,126 +150,83 @@ end;
 
 procedure TsessionForm.acTestExecute(Sender: TObject);
 var
-  sshTunnel: TChilkatSshTunnel;
-  ssh_pass, ssh_key: String;
-  success: Integer;
-  key: TChilkatSshKey;
-  privKey: WideString;
+  i: Integer;
+  sshClient: TScSshClient;
+  sshChannel: TScSshChannel;
+  lPort, lDatabase: Boolean;
 begin
-  if cboxKey.Checked then
-    ssh_key := edSshKey.Text;
-  ssh_pass := edSshPassword.Text;
-  with Session do
+  with Connection do
   begin
-    ProviderName := cbProvider.Text;
-    Server := edServer.Text;
-    Username := edUser.Text;
-    Password := edPass.Text;
-    if edPort.Enabled then
-    try
-      if cbSessionType.ItemIndex = 1 then
-        Port := StrToInt(edSshListenPort.Text)
-      else
-        Port := StrToInt(edPort.Text)
-    except
-      if cbSessionType.ItemIndex = 1 then
-        ActiveControl := edSshListenPort
-      else
-        ActiveControl := edPort;
-      raise;
-    end;
-    if edDatabase.Enabled then
-      Database := edDatabase.Text;
+    lPort := (DriverName = 'MySQL');
+    lDatabase := (DriverName = 'MySQL');
+    DriverName := cbProvider.Items.Names[cbProvider.ItemIndex];
+    if Params.DriverID = 'Ora' then
+      Params.Database := edServer.Text
+    else
+      Params.Values['Server'] := edServer.Text;
+    Params.UserName := edUser.Text;
+    Params.Password := edPass.Text;
+    if lPort then
+      try
+        if cbSessionType.ItemIndex = 1 then
+          Params.Values['Port'] := IntToStr(StrToInt(edSshListenPort.Text))
+        else
+          Params.Values['Port'] := IntToStr(StrToInt(edPort.Text))
+      except
+        if cbSessionType.ItemIndex = 1 then
+          ActiveControl := edSshListenPort
+        else
+          ActiveControl := edPort;
+        raise;
+      end;
+    if (lDatabase) then
+      Params.Database := edDatabase.Text;
 
-    sshTunnel := TChilkatSshTunnel.Create(Self);
-    success := sshTunnel.UnlockComponent(chilkat_key);
     try
       try
         if cbSessionType.ItemIndex = 1 then
         begin
-          //sshTunnel := dm.ConnectSSH(edSshHost.Text, edSshPort.Text, edSshUsername.Text, ssh_pass, ssh_key, edSshListenPort.Text, edServer.Text, edPort.Text);
-          { Direct code due to debuging }
-          if (success <> 1) then
-          begin
-            ShowMessage(sshTunnel.LastErrorText);
-            Exit;
-          end;
-          sshTunnel.DestPort := StrToInt(edPort.Text);
-          sshTunnel.DestHostname := edServer.Text;
-          sshTunnel.SshHostname := edSshHost.Text;
-          sshTunnel.SshPort := StrToIntDef(edSshPort.Text, 22);
-          sshTunnel.SshLogin := edSshUsername.Text;
-          if ssh_key <> '' then
-          begin
-            key := TChilkatSshKey.Create(Self);
-            privKey := key.LoadText(ssh_key);
-            key.Password := ssh_pass;
-            if (Length(privKey) = 0 ) then
-            begin
-              ShowMessage(key.LastErrorText);
-              Exit;
-            end;
-            if copy(privKey, 1, 3) = '---' then
-              key.FromOpenSshPrivateKey(privKey)
-            else
-              key.FromPuttyPrivateKey(privKey);
-            success := sshTunnel.SetSshAuthenticationKey(key.ControlInterface);
-            if (success <> 1) then
-            begin
-              ShowMessage(sshTunnel.LastErrorText);
-              Exit;
-            end;
-          end
-          else
-            sshTunnel.SshPassword := ssh_pass;
-          success := sshTunnel.BeginAccepting(StrToInt(edSshListenPort.Text));
-          if (success <> 1) then
-          begin
-            ShowMessage(sshTunnel.LastErrorText);
-            Exit;
-          end;
+          dm.ConnectSSH(Self, edSshHost.Text, edSshPort.Text, edSshUsername.Text, edSshPassword.Text, edSshKey.Text, edSshListenPort.Text, edServer.Text, edPort.Text);
         end;
-        Session.Connected := True;
+        Connection.Connected := True;
         ShowMessage('Successfully connected to Database!');
       except
         raise;
       end;
     finally
-      Session.Disconnect;
-      if sshTunnel <> nil then
+      Connection.Connected := False;
+      sshClient := nil;
+      sshChannel := nil;
+      for i := 0 to self.ComponentCount - 1 do
       begin
-        success := sshTunnel.StopAccepting();
-        if (success <> 1) then
-        begin
-          ShowMessage(sshTunnel.LastErrorText);
-        end;
-        // If any background tunnels are still in existence (and managed
-        // by a single SSH tunnel pool background thread), stop them...
-        success := sshTunnel.StopAllTunnels(1000);
-        if (success <> 1) then
-        begin
-          ShowMessage(sshTunnel.LastErrorText);
-        end;
+        if self.Components[i] is TScSSHChannel then
+          sshChannel := TScSSHChannel(self.Components[i]);
+        if self.Components[i] is TScSshClient then
+          sshClient := TScSSHClient(self.Components[i]);
+      end;
+      if sshChannel <> nil then
+      begin
+        sshChannel.Disconnect;
+        sshChannel.Destroy;
+      end;
+      if sshClient <> nil then
+      begin
+        sshClient.Disconnect;
+        sshClient.Destroy;
       end;
     end;
   end;
 end;
 
 procedure TsessionForm.cbProviderChange(Sender: TObject);
-var
-  Provider: TUniProvider;
 begin
-  Session.Disconnect;
-  Session.ProviderName := TComboBox(Sender).Text;
-  Provider := TUniUtils.GetProvider(Session);
-  edDatabase.Enabled := Provider.IsDatabaseSupported;
-  laDatabase.Enabled := edDatabase.Enabled;
-  if not edDatabase.Enabled then
-    edDatabase.Clear;
-  edPort.Enabled := Provider.IsPortSupported;
-  laPort.Enabled := edPort.Enabled;
-  if not edPort.Enabled then
-    edPort.Clear;
+  Connection.DriverName := TComboBox(Sender).Items.Names[TComboBox(Sender).ItemIndex];
+end;
+
+procedure TsessionForm.cbProviderDrawItem(Control: TWinControl; Index: Integer;
+  Rect: TRect; State: TOwnerDrawState);
+begin
+  TComboBox(Control).Canvas.TextRect(Rect, Rect.Left, Rect.Top, TComboBox(Control).Items.Values[TComboBox(Control).Items.Names[Index]]);
 end;
 
 procedure TsessionForm.cbSessionTypeChange(Sender: TObject);
@@ -289,11 +250,6 @@ begin
     laSshPassword.Caption := 'SSH Password';
 end;
 
-procedure TsessionForm.cxButton1Click(Sender: TObject);
-begin
-  ShowMessage(Session.ConnectString);
-end;
-
 procedure TsessionForm.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   dm.connection_name := '';
@@ -301,13 +257,10 @@ end;
 
 procedure TsessionForm.FormCreate(Sender: TObject);
 var
-  ProviderList: TStringList;
   IniFile : TIniFile;
   sProvider: String;
 begin
-  ProviderList := TStringList.Create;
-  UniProviders.GetProviderNames(ProviderList);
-  cbProvider.Items.Assign(ProviderList);
+  cbProvider.Items.Text := dm.DbDriverList.Text;
   cbProvider.ItemIndex := 0;
   if dm.connection_name <> '' then
   begin
@@ -334,7 +287,7 @@ begin
           edSshListenPort.Text := ReadString(dm.connection_name, 'ssh_listen_port', '');
         end;
         sProvider := ReadString(dm.connection_name, 'db_provider', '');
-        cbProvider.Text := sProvider;
+        cbProvider.ItemIndex := dm.DbDriverList.IndexOfName(sProvider);
         edServer.Text := ReadString(dm.connection_name, 'db_server', '');
         edUser.Text := ReadString(dm.connection_name, 'db_user', '');
         edPass.Text := String(Decrypt(AnsiString(ReadString(dm.connection_name, 'db_pass', '')), dm.encrypt_key));

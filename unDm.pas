@@ -3,17 +3,21 @@ unit unDm;
 interface
 
 uses
-  SysUtils, Classes, ImgList, Controls, cxGraphics, DB,
-  DBAccess, Uni, cxPC, IniFiles, AsyncCalls, cxStyles, cxClasses, unMain,
+  SysUtils, Classes, ImgList, Controls, cxStyles, cxClasses, cxGraphics,
+  DB, DBAccess, cxPC, IniFiles, unMain, Forms,
   windows, System.UITypes, System.Types,
-  CHILKATSSHLib_TLB,
+  ScBridge, ScSSHClient, ScSSHChannel, ScSSHUtil,
   cxGrid, cxGridCustomView, cxGridCustomTableView, cxGridDBTableView, cxGridTableView,
-  cxControls, SynEdit, SynEditHighlighter, SynHighlighterSQL, Graphics, DateUtils;
+  cxControls, SynEdit, SynEditHighlighter, SynHighlighterSQL, Graphics, DateUtils,
+  //AsyncCalls,
+  FireDAC.Phys.MySQLDef, FireDAC.Phys.MySQL, FireDAC.Phys.Oracle, FireDAC.Phys.OracleDef,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param,
+  FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf,
+  FireDAC.Stan.Async, FireDAC.DApt, FireDAC.Comp.Client, FireDAC.Comp.DataSet;
 
 const
   cMaxConnections = 20;
 
-  chilkat_key = 'SSH87654321_2A5CA5521C1G';
   secGeneral = 'General';
   secEditor = 'Editor';
   secDataGrid = 'DataGrid';
@@ -29,12 +33,12 @@ type
   end;
   PTabWorker = ^TTabWorker;
 
-  TThreadCallback = procedure(EditorTab: TcxTabSheet; Query: TUniQuery; SQL: TUniSQL; GridView: TcxGridDBTableView);
+  TThreadCallback = procedure(EditorTab: TcxTabSheet; Query: TFDQuery; SQL: TFDCommand; GridView: TcxGridDBTableView);
 
   TWorkerTask = record
     EditorTab: TcxTabSheet;
-    Query: TUniQuery;
-    SQL: TUniSQL;
+    Query: TFDQuery;
+    SQL: TFDCommand;
     GridView: TcxGridDBTableView;
   end;
   PWorkerTask = ^TWorkerTask;
@@ -48,6 +52,9 @@ type
     GridContent: TcxStyle;
     NullString: TcxStyle;
     GridHeader: TcxStyle;
+    keyStorage: TScFileStorage;
+    FDQuery1: TFDQuery;
+    FDCommand1: TFDCommand;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
   private
@@ -59,28 +66,38 @@ type
     LineEnding: Integer;
     connection_name: String;
     new_session: String;
+    DbDriverList: TStringList;
     Main: TMain;
-    function ConnectSSH(Owner: TcxTabSheet; ssh_hostname, ssh_port, ssh_user, ssh_pass, ssh_key, ssh_listen_port, dest_host, dest_port : String) : TChilkatSshTunnel;
+    function ConnectSSH(Owner: TComponent; ssh_hostname, ssh_port, ssh_user, ssh_pass, ssh_key, ssh_listen_port, dest_host, dest_port : String) : Boolean;
     function getConnectionImage(Index: Integer): Integer;
     function GetSessionIniFile: TIniFile;
     function GetConfigIniFile: TIniFile;
-    function NewTabWorker(FTab: TcxTabSheet; FSession: TUniConnection): TWorker;
+    function NewTabWorker(FTab: TcxTabSheet; FSession: TFDConnection): TWorker;
     function GetTabWorker(Tab: TcxTabSheet): TWorker;
     procedure Style(Sender: TComponent);
     function GetWineAvail: boolean;
+    procedure ScSSHClientServerKeyValidate(Sender: TObject; NewServerKey: TScKey; var Accept: Boolean);
   end;
 
   TWorker = class(TThread)
   private
-    Session: TUniConnection;
+    Session: TFDConnection;
     Queue: TList;
     lSuspended: boolean;
   public
-    constructor Create(FCreateSuspended: Boolean; FSession: TUniConnection);
+    constructor Create(FCreateSuspended: Boolean; FSession: TFDConnection);
     destructor Destroy; override;
     procedure Execute; override;
-    procedure AddWork(FEditorTab: TcxTabSheet; FQuery: TUniQuery; FSQL: TUniSQL; FGridView: TcxGridDBTableView);
+    procedure AddWork(FEditorTab: TcxTabSheet; FQuery: TFDQuery; FSQL: TFDCommand; FGridView: TcxGridDBTableView);
     function GetWorkerTask(FEditorTab: TcxTabSheet): PWorkerTask;
+  end;
+
+  TWorkerCancel = class(TThread)
+  private
+    Q: TFDQuery;
+  public
+    constructor Create(Query: TFDQuery);
+    procedure Execute; override;
   end;
 
 var
@@ -90,6 +107,63 @@ implementation
 
 {$R *.dfm}
 
+function Tdm.ConnectSSH(Owner: TComponent; ssh_hostname, ssh_port, ssh_user,
+  ssh_pass, ssh_key, ssh_listen_port, dest_host, dest_port: String): boolean;
+var
+  key: TScKey;
+  lSuccess: Boolean;
+  sshClient: TScSshClient;
+  portForward: TScSshChannel;
+begin
+  keyStorage.DeleteStorage;
+  key := keyStorage.Keys.FindKey(ssh_user);
+  if (key = nil) then
+  begin
+    if ssh_key <> '' then
+    begin
+      key := TScKey.Create(keyStorage.Keys);
+      key.KeyName := ssh_user;
+      key.ImportFrom(ssh_key, ssh_pass);
+    end;
+  end;
+  sshClient := TScSshClient.Create(Owner);
+  sshClient.KeyStorage := keyStorage;
+  if key <> nil then
+  begin
+    sshClient.Authentication := atPublicKey;
+    sshClient.PrivateKeyName := key.KeyName;
+  end
+  else
+  begin
+    if ssh_pass <> '' then
+    begin
+      sshClient.Authentication := atPassword;
+      sshClient.Password := ssh_pass;
+    end
+    else
+      sshClient.Authentication := atKeyboardInteractive;
+  end;
+  sshClient.HostName := ssh_hostname;
+  sshClient.Port := StrToIntDef(ssh_port, 22);
+  sshClient.User := ssh_user;
+  sshClient.OnServerKeyValidate := ScSSHClientServerKeyValidate;
+  sshClient.Connect;
+  lSuccess := sshClient.Connected;
+  // Check if required port forwarding
+  if (lSuccess) and (StrToIntDef(ssh_listen_port, 0) <> 0) then
+  begin
+    portForward := TScSSHChannel.Create(Owner);
+    portForward.Client := sshClient;
+    portForward.GatewayPorts := True;
+    portForward.DestHost := dest_host;
+    portForward.DestPort := StrToIntDef(dest_port, 0);
+    portForward.SourcePort := StrToIntDef(ssh_listen_port, 0);
+    portForward.Connect;
+    lSuccess := portForward.Connected;
+  end;
+  Result := lSuccess;
+end;
+
 procedure Tdm.DataModuleCreate(Sender: TObject);
 begin
   connection_name := '';
@@ -97,6 +171,14 @@ begin
   new_session := '';
   encrypt_key := 1101;
   TabWorkers := TList.Create;
+  DbDriverList := TStringList.Create;
+  with DbDriverList do
+  begin
+    Add('MySQL=MySql');
+    Add('Ora=Oracle');
+    Add('SQLite=SQLite');
+    Add('PG=PostgeSql');
+  end;
 end;
 
 procedure Tdm.DataModuleDestroy(Sender: TObject);
@@ -104,6 +186,7 @@ var
   i: integer;
   P: PTabWorker;
 begin
+  keyStorage.DeleteStorage;
   for i := TabWorkers.Count - 1 downto 0 do
   begin
     P := PTabWorker(TabWorkers.Items[i]);
@@ -124,75 +207,6 @@ begin
    Result := Assigned(GetProcAddress(H, 'wine_get_version'));
    FreeLibrary(H);
  end;
-end;
-
-function Tdm.ConnectSSH(Owner: TcxTabSheet; ssh_hostname, ssh_port, ssh_user, ssh_pass, ssh_key, ssh_listen_port, dest_host, dest_port : String) : TChilkatSshTunnel;
-var
-  success: Integer;
-  sshTunnel: TChilkatSshTunnel;
-  key: TChilkatSshKey;
-  privKey: WideString;
-begin
-  Result := nil;
-  sshTunnel := TChilkatSshTunnel.Create(Owner);
-  success := sshTunnel.UnlockComponent(chilkat_key);
-  if (success <> 1) then Exit;
-  // The destination host/port is the database server.
-  // The DestHostname may be the domain name or
-  // IP address (in dotted decimal notation) of the database
-  // server.
-  sshTunnel.DestPort := StrToInt(dest_port);
-  sshTunnel.DestHostname := dest_host;
-
-  // Provide information about the location of the SSH server,
-  // and the authentication to be used with it. This is the
-  // login information for the SSH server (not the database server).
-  sshTunnel.SshHostname := ssh_hostname;
-  sshTunnel.SshPort := StrToIntDef(ssh_port, 22);
-  sshTunnel.SshLogin := ssh_user;
-  if ssh_key <> '' then
-  begin
-    key := TChilkatSshKey.Create(Self);
-    //  Load a private key from a PEM file:
-    //  (Private keys may be loaded from OpenSSH and Putty formats.
-    //  Both encrypted and unencrypted private key file formats
-    //  are supported.  This example loads an unencrypted private
-    //  key in OpenSSH format.  PuTTY keys typically use the .ppk
-    //  file extension, while OpenSSH keys use the PEM format.
-    privKey := key.LoadText(ssh_key);
-    key.Password := ssh_pass;
-    if (Length(privKey) = 0 ) then
-    begin
-      //Memo1.Lines.Add(key.LastErrorText);
-      Exit;
-    end;
-    if copy(privKey, 1, 3) = '---' then
-      key.FromOpenSshPrivateKey(privKey)
-    else
-      key.FromPuttyPrivateKey(privKey);
-    //  Tell the SSH tunnel to use the key for authentication:
-    success := sshTunnel.SetSshAuthenticationKey(key.ControlInterface);
-    if (success <> 1) then
-    begin
-      //ShowMessage(sshTunnel.LastErrorText);
-      Exit;
-    end;
-  end
-  else
-    sshTunnel.SshPassword := ssh_pass;
-
-  // Start accepting connections in a background thread.
-  // The SSH tunnels are autonomously run in a background
-  // thread.  There is one background thread for accepting
-  // connections, and another for managing the tunnel pool.
-  success := sshTunnel.BeginAccepting(StrToInt(ssh_listen_port));
-  if (success <> 1) then
-  begin
-  //  ShowMessage(sshTunnel.LastErrorText);
-    result := nil;
-    Exit;
-  end;
-  result := sshTunnel;
 end;
 
 function Tdm.GetSessionIniFile: TIniFile;
@@ -222,7 +236,7 @@ begin
   end;
 end;
 
-function Tdm.NewTabWorker(FTab: TcxTabSheet; FSession: TUniConnection): TWorker;
+function Tdm.NewTabWorker(FTab: TcxTabSheet; FSession: TFDConnection): TWorker;
 var
   P: PTabWorker;
 begin
@@ -231,6 +245,11 @@ begin
   P^.Worker := TWorker.Create(True, FSession);
   TabWorkers.Add(P);
   Result :=  P^.Worker;
+end;
+
+procedure Tdm.ScSSHClientServerKeyValidate(Sender: TObject; NewServerKey: TScKey; var Accept: Boolean);
+begin
+  Accept := True;
 end;
 
 procedure Tdm.Style(Sender: TComponent);
@@ -322,13 +341,13 @@ end;
 
 { TWorker }
 
-constructor TWorker.Create(FCreateSuspended: Boolean; FSession: TUniConnection);
+constructor TWorker.Create(FCreateSuspended: Boolean; FSession: TFDConnection);
 begin
+  inherited Create(false);
   Session := FSession;
   Queue :=  TList.Create;
   FreeOnTerminate := True;
   lSuspended := FCreateSuspended;
-  inherited Create(false);
 end;
 
 destructor TWorker.Destroy;
@@ -337,12 +356,12 @@ begin
   inherited;
 end;
 
-procedure TWorker.AddWork(FEditorTab: TcxTabSheet; FQuery: TUniQuery; FSQL: TUniSQL; FGridView: TcxGridDBTableView);
+procedure TWorker.AddWork(FEditorTab: TcxTabSheet; FQuery: TFDQuery; FSQL: TFDCommand; FGridView: TcxGridDBTableView);
 var
   W: PWorkerTask;
 begin
   // thread safety (jer MOZDA nismo u glavnom threadu)
-  EnterMainThread;
+  //EnterMainThread;
   try
     New(W);
     W^.EditorTab := FEditorTab;
@@ -352,7 +371,7 @@ begin
     Queue.Add(W);
     lSuspended := False;
   finally
-    LeaveMainThread;
+    //LeaveMainThread;
   end;
 end;
 
@@ -362,7 +381,7 @@ var
   W: PWorkerTask;
 begin
   Result := nil;
-  EnterMainThread;
+  //EnterMainThread;
   try
     for i := 0 to Queue.Count -1 do
     begin
@@ -375,7 +394,7 @@ begin
     end;
     lSuspended := False;
   finally
-    LeaveMainThread;
+    //LeaveMainThread;
   end;
 end;
 
@@ -399,13 +418,13 @@ begin
     if Queue.Count > 0 then
     begin
       // thread safety (jer nismo u glavnom threadu)
-      EnterMainThread;
+      //EnterMainThread;
       try
         W := Queue.Items[0];
         Queue.Delete(0);
         W^.GridView.BeginUpdate(lsimImmediate);
       finally
-        LeaveMainThread;
+        //LeaveMainThread;
       end;
       // run it
       try
@@ -415,7 +434,7 @@ begin
 //          W^.Query.Close;
           W^.EditorTab.Hint := '';
           iTime := now;
-          W^.Query.Execute;
+          W^.Query.Open;
           W^.EditorTab.Hint := FormatFloat('0.000', MilliSecondsBetween(now, iTime) /1000) + ' sec';
 //          W^.Query.First;
         end;
@@ -433,34 +452,48 @@ begin
         end;
       end;
       {Callback}
-      EnterMainThread;
+      //EnterMainThread;
       try
         dm.Main.ExecuteSQLCallback(W^.EditorTab, W^.Query, W^.SQL, W^.GridView, Error);
       finally
-        LeaveMainThread;
+        //LeaveMainThread;
       end;
     end
     else
     begin
       // nothing to do, simulate suspend
-      EnterMainThread;
+      //EnterMainThread;
       try
         lSuspended := True;
       finally
-        LeaveMainThread;
+        //LeaveMainThread;
       end;
     end;
   except
     on E: Exception do
     begin
-      EnterMainThread;
+      //EnterMainThread;
       try
         dm.Main.ShowError(E.Message);
       finally
-        LeaveMainThread;
+        //LeaveMainThread;
       end;
     end;
   end;
+end;
+
+{ TWorkerCancel }
+
+constructor TWorkerCancel.Create(Query: TFDQuery);
+begin
+  Q := Query;
+  FreeOnTerminate := True;
+  inherited Create(False);
+end;
+
+procedure TWorkerCancel.Execute;
+begin
+  Q.AbortJob;
 end;
 
 end.

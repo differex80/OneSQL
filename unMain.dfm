@@ -236,6 +236,18 @@ object main: Tmain
       TabOrder = 13
       OnClick = buHistoryClick
     end
+    object buCancelExec: TcxButton
+      Left = 464
+      Top = 0
+      Width = 34
+      Height = 34
+      Enabled = False
+      OptionsImage.ImageIndex = 3
+      OptionsImage.Images = dm.imList
+      SpeedButtonOptions.CanBeFocused = False
+      SpeedButtonOptions.Flat = True
+      TabOrder = 14
+    end
   end
   object paSessions: TPanel
     Left = 0
@@ -263,12 +275,25 @@ object main: Tmain
       LookAndFeel.NativeStyle = True
       OnCanCloseEx = pcSessionsCanCloseEx
       OnChange = pcSessionsChange
-      ExplicitTop = 6
       ClientRectBottom = 656
       ClientRectLeft = 4
       ClientRectRight = 996
       ClientRectTop = 4
     end
+  end
+  object DBGrid1: TDBGrid
+    Left = 22
+    Top = 128
+    Width = 675
+    Height = 241
+    DataSource = DataSource1
+    TabOrder = 2
+    TitleFont.Charset = DEFAULT_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -11
+    TitleFont.Name = 'Tahoma'
+    TitleFont.Style = []
+    Visible = False
   end
   object ac: TActionList
     Images = dm.imList
@@ -336,31 +361,8 @@ object main: Tmain
     Left = 160
     Top = 64
   end
-  object UniConnection1: TUniConnection
-    ProviderName = 'PostgreSQL'
-    Port = 5432
-    Database = 'libreplan'
-    SpecificOptions.Strings = (
-      'Oracle.Direct=True'
-      'MySQL.Compress=True'
-      'MySQL.Interactive=True')
-    Username = 'libreplan'
-    Server = 'localhost'
-    LoginPrompt = False
-    Left = 448
-    Top = 336
-    EncryptedPassword = '93FF96FF9DFF8DFF9AFF8FFF93FF9EFF91FF'
-  end
-  object UniMetaData1: TUniMetaData
-    MetaDataKind = 'Columns'
-    Restrictions.Strings = (
-      'TABLE_SCHEMA=public')
-    Connection = UniConnection1
-    Left = 448
-    Top = 400
-  end
   object DataSource1: TDataSource
-    DataSet = UniMetaData1
+    DataSet = FDMetaInfoQuery1
     Left = 520
     Top = 400
   end
@@ -369,18 +371,6 @@ object main: Tmain
     OnTimer = tiOpenTimer
     Left = 120
     Top = 64
-  end
-  object UniQuery1: TUniQuery
-    Connection = UniConnection1
-    SQL.Strings = (
-      'select '#39'pero'#39' from Cust')
-    FetchRows = 50
-    CachedUpdates = True
-    Options.RequiredFields = False
-    Options.CompressBlobMode = cbClient
-    AutoCalcFields = False
-    Left = 520
-    Top = 336
   end
   object tiSearch: TTimer
     Enabled = False
@@ -394,8 +384,8 @@ object main: Tmain
     Top = 65
   end
   object SynSearch: TSynEditSearch
-    Left = 392
-    Top = 72
+    Left = 368
+    Top = 64
   end
   object pmEditor: TPopupMenu
     Images = dm.imListSmall
@@ -415,20 +405,81 @@ object main: Tmain
       OnClick = miSelectForUpdateClick
     end
   end
-  object SQLiteLogCon: TUniConnection
-    ProviderName = 'SQLite'
-    Database = 'C:\Users\dev7\AppData\Local\OneSQL\LogDB.sqlite3'
-    SpecificOptions.Strings = (
-      'SQLite.Direct=True')
-    Options.KeepDesignConnected = False
-    Connected = True
-    LoginPrompt = False
-    Left = 464
-    Top = 73
+  object FDMetaInfoQuery1: TFDMetaInfoQuery
+    Connection = FDConnection1
+    FetchOptions.AssignedValues = [evMode, evItems, evUnidirectional, evCursorKind, evAutoFetchAll, evDetailOptimize, evLiveWindowFastFirst]
+    FetchOptions.DetailOptimize = False
+    ResourceOptions.AssignedValues = [rvParamCreate, rvMacroCreate, rvMacroExpand, rvParamExpand, rvEscapeExpand, rvDirectExecute, rvUnifyParams, rvStorePrettyPrint]
+    ResourceOptions.ParamCreate = False
+    ResourceOptions.MacroCreate = False
+    ResourceOptions.ParamExpand = False
+    ResourceOptions.MacroExpand = False
+    ResourceOptions.EscapeExpand = False
+    ResourceOptions.StorePrettyPrint = True
+    ResourceOptions.UnifyParams = True
+    MetaInfoKind = mkProcs
+    TableKinds = [tkTable]
+    SchemaName = 'BUDGET'
+    BaseObjectName = 'AZURIRAJ'
+    Left = 740
+    Top = 230
   end
-  object qLog: TUniSQL
+  object FDConnection1: TFDConnection
+    Params.Strings = (
+      'DriverID=Ora'
+      'Database=193.198.20.53'
+      'Password=alienware'
+      'User_Name=budget'
+      'Port=3308'
+      'Server=localhost')
+    FetchOptions.AssignedValues = [evDetailOptimize]
+    ResourceOptions.AssignedValues = [rvDirectExecute, rvAutoReconnect]
+    ResourceOptions.DirectExecute = True
+    ResourceOptions.AutoReconnect = True
+    LoginPrompt = False
+    Left = 772
+    Top = 174
+  end
+  object guiCursor: TFDGUIxWaitCursor
+    Provider = 'Forms'
+    Left = 524
+    Top = 62
+  end
+  object FDQuery1: TFDQuery
+    Connection = FDConnection1
+    Left = 772
+    Top = 318
+  end
+  object SQLiteLogCon: TFDConnection
+    Params.Strings = (
+      'Database=C:\Users\dev7\AppData\Local\OneSQL\LogDB.sqlite3'
+      'StringFormat=ANSI'
+      'OpenMode=CreateUTF8'
+      'SQLiteAdvanced=page_size=4096'
+      'DriverID=SQLite'
+      'LockingMode=Normal')
+    FormatOptions.AssignedValues = [fvDefaultParamDataType]
+    FormatOptions.DefaultParamDataType = ftString
+    LoginPrompt = False
+    Left = 420
+    Top = 62
+  end
+  object qLog: TFDCommand
     Connection = SQLiteLogCon
-    Left = 520
-    Top = 72
+    ResourceOptions.AssignedValues = [rvDirectExecute]
+    ResourceOptions.DirectExecute = True
+    CommandKind = skInsert
+    CommandText.Strings = (
+      
+        'insert into sql_history (sess, statement) values ('#39'WebBudget'#39','#39's' +
+        'elect * from korisnik'#39');')
+    Left = 456
+    Top = 64
+  end
+  object execDialog: TFDGUIxAsyncExecuteDialog
+    Provider = 'Forms'
+    Caption = 'OneSQL working'
+    Left = 600
+    Top = 64
   end
 end

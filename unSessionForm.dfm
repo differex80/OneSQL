@@ -289,9 +289,11 @@ object sessionForm: TsessionForm
       Left = 123
       Top = 26
       Width = 175
-      Height = 21
+      Height = 22
+      Style = csOwnerDrawFixed
       TabOrder = 0
       OnChange = cbProviderChange
+      OnDrawItem = cbProviderDrawItem
     end
     object edServer: TEdit
       Left = 123
@@ -386,12 +388,6 @@ object sessionForm: TsessionForm
     ModalResult = 2
     TabOrder = 5
   end
-  object Session: TUniConnection
-    AutoCommit = False
-    LoginPrompt = False
-    Left = 456
-    Top = 8
-  end
   object ac: TActionList
     Images = dm.imListSmall
     Left = 296
@@ -425,5 +421,22 @@ object sessionForm: TsessionForm
     Title = 'Open Private SSH Key'
     Left = 304
     Top = 224
+  end
+  object Connection: TFDConnection
+    Params.Strings = (
+      'Password=alienware'
+      'User_Name=budget'
+      'Database=193.198.20.53')
+    LoginPrompt = False
+    Left = 24
+    Top = 341
+  end
+  object fdmanager: TFDManager
+    FormatOptions.AssignedValues = [fvMapRules]
+    FormatOptions.OwnMapRules = True
+    FormatOptions.MapRules = <>
+    Active = True
+    Left = 184
+    Top = 320
   end
 end

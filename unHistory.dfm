@@ -4,7 +4,7 @@ object history: Thistory
   BorderWidth = 4
   Caption = 'SQL History'
   ClientHeight = 554
-  ClientWidth = 784
+  ClientWidth = 776
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -20,16 +20,30 @@ object history: Thistory
   object Panel1: TPanel
     Left = 0
     Top = 525
-    Width = 784
+    Width = 776
     Height = 29
     Align = alBottom
     BevelOuter = bvNone
     TabOrder = 0
     DesignSize = (
-      784
+      776
       29)
+    object Label1: TLabel
+      Left = 409
+      Top = 7
+      Width = 60
+      Height = 13
+      Caption = 'Limit results:'
+    end
+    object Label2: TLabel
+      Left = 508
+      Top = 7
+      Width = 26
+      Height = 13
+      Caption = 'Rows'
+    end
     object buClose: TcxButton
-      Left = 705
+      Left = 697
       Top = 2
       Width = 75
       Height = 25
@@ -52,6 +66,16 @@ object history: Thistory
       OnEnter = edHistorySearchEnter
       OnExit = edHistorySearchExit
       Width = 400
+    end
+    object edLimit: TEdit
+      Left = 472
+      Top = 4
+      Width = 32
+      Height = 21
+      Alignment = taRightJustify
+      TabOrder = 2
+      Text = '20'
+      OnChange = edLimitChange
     end
   end
   object Panel2: TPanel
@@ -99,7 +123,7 @@ object history: Thistory
   object Panel3: TPanel
     Left = 137
     Top = 0
-    Width = 647
+    Width = 639
     Height = 525
     Align = alClient
     BevelOuter = bvNone
@@ -109,17 +133,19 @@ object history: Thistory
     object dbseStatement: TDBSynEdit
       Left = 4
       Top = 4
-      Width = 639
+      Width = 631
       Height = 517
       DataField = 'statement'
       DataSource = dsHistory
       Align = alClient
+      Ctl3D = True
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -13
       Font.Name = 'Courier New'
       Font.Style = []
       ParentColor = False
+      ParentCtl3D = False
       ParentFont = False
       TabOrder = 0
       Gutter.Font.Charset = DEFAULT_CHARSET
@@ -133,50 +159,6 @@ object history: Thistory
       Options = [eoAutoIndent, eoDragDropEditing, eoEnhanceEndKey, eoGroupUndo, eoShowScrollHint, eoSmartTabDelete, eoTabIndent]
       RightEdge = 0
       TabWidth = 2
-    end
-  end
-  object qHistory: TUniQuery
-    Connection = main.SQLiteLogCon
-    SQL.Strings = (
-      'select'
-      '  *'
-      'from'
-      '  sql_history'
-      'where'
-      '  (:P_SEARCH = '#39#39' or statement like '#39'%'#39' || :P_SEARCH || '#39'%'#39')'
-      '  and sess = :P_SESSION'
-      'order by'
-      '  id desc'
-      'limit'
-      '  20')
-    Left = 552
-    Top = 16
-    ParamData = <
-      item
-        DataType = ftUnknown
-        Name = 'P_SEARCH'
-        Value = nil
-      end
-      item
-        DataType = ftUnknown
-        Name = 'P_SESSION'
-        Value = nil
-      end>
-    object qHistoryid: TIntegerField
-      AutoGenerateValue = arAutoInc
-      FieldName = 'id'
-    end
-    object qHistorysess: TMemoField
-      FieldName = 'sess'
-      BlobType = ftMemo
-    end
-    object qHistorystatement: TMemoField
-      FieldName = 'statement'
-      BlobType = ftMemo
-    end
-    object qHistoryts: TDateTimeField
-      DisplayLabel = 'Timestamp'
-      FieldName = 'ts'
     end
   end
   object dsHistory: TDataSource
@@ -198,5 +180,64 @@ object history: Thistory
     OnTimer = tiExecuteHistoryTimer
     Left = 624
     Top = 16
+  end
+  object qHistory: TFDQuery
+    AfterDelete = qHistoryAfterDelete
+    Connection = main.SQLiteLogCon
+    UpdateOptions.AssignedValues = [uvRefreshMode]
+    UpdateOptions.RefreshMode = rmAll
+    SQL.Strings = (
+      'select'
+      '  *'
+      'from'
+      '  sql_history'
+      'where'
+      '  (:P_SEARCH = '#39#39' or statement like '#39'%'#39' || :P_SEARCH || '#39'%'#39')'
+      '  and sess = :P_SESSION'
+      'order by'
+      '  id desc'
+      'limit'
+      '  :P_LIMIT')
+    Left = 544
+    Top = 16
+    ParamData = <
+      item
+        Name = 'P_SEARCH'
+        DataType = ftString
+        ParamType = ptInput
+        Value = Null
+      end
+      item
+        Name = 'P_SESSION'
+        DataType = ftString
+        ParamType = ptInput
+        Value = ''
+      end
+      item
+        Name = 'P_LIMIT'
+        DataType = ftInteger
+        ParamType = ptInput
+        Value = Null
+      end>
+    object qHistoryid: TFDAutoIncField
+      FieldName = 'id'
+      Origin = 'id'
+      ProviderFlags = [pfInWhere, pfInKey]
+      ReadOnly = True
+    end
+    object qHistorysess: TMemoField
+      FieldName = 'sess'
+      Origin = 'sess'
+      BlobType = ftMemo
+    end
+    object qHistorystatement: TMemoField
+      FieldName = 'statement'
+      Origin = 'statement'
+      BlobType = ftMemo
+    end
+    object qHistoryts: TDateTimeField
+      FieldName = 'ts'
+      Origin = 'ts'
+    end
   end
 end

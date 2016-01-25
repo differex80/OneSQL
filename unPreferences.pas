@@ -1,4 +1,5 @@
 unit unPreferences;
+{$WARN UNIT_PLATFORM OFF}
 
 interface
 
