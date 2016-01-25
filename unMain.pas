@@ -1211,7 +1211,6 @@ begin
     begin
       { Found it! Set it to current }
       Tab := pcSessions.Pages[i];
-      // DONE : Check if session is active
       CreateSession(SessionName);
       break;
     end;
@@ -1432,7 +1431,6 @@ begin
         Exit;
       end;
       SetMetaData(Meta);
-      //todo: Check threaded exec
       dm.NewTabWorker(Tab, Conn);
       { Create auto-commit combo box }
       with TcxImageComboBox.Create(commitPanel) do
