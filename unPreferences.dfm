@@ -69,7 +69,7 @@ object Preferences: TPreferences
       Height = 518
       Align = alClient
       TabOrder = 0
-      Properties.ActivePage = tsGeneral
+      Properties.ActivePage = tsAbout
       Properties.CustomButtons.Buttons = <>
       ClientRectBottom = 514
       ClientRectLeft = 4
@@ -78,10 +78,6 @@ object Preferences: TPreferences
       object tsGeneral: TcxTabSheet
         BorderWidth = 4
         Caption = 'General'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox5: TGroupBox
           Left = 0
           Top = 0
@@ -158,10 +154,6 @@ object Preferences: TPreferences
       object tsEditor: TcxTabSheet
         BorderWidth = 4
         Caption = 'SQL Editor'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox1: TGroupBox
           Left = 0
           Top = 0
@@ -587,10 +579,6 @@ object Preferences: TPreferences
       object tsGrid: TcxTabSheet
         BorderWidth = 4
         Caption = 'Data Grid'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox3: TGroupBox
           Left = 0
           Top = 0
@@ -716,24 +704,19 @@ object Preferences: TPreferences
       object tsAbout: TcxTabSheet
         Caption = 'About'
         ImageIndex = 2
-        OnResize = tsAboutResize
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object paInfoLeft: TPanel
           Left = 0
           Top = 0
-          Width = 153
+          Width = 71
           Height = 490
           Align = alLeft
           BevelOuter = bvNone
           TabOrder = 0
           DesignSize = (
-            153
+            71
             490)
           object Label2: TLabel
-            Left = 33
+            Left = -49
             Top = 6
             Width = 120
             Height = 13
@@ -744,7 +727,7 @@ object Preferences: TPreferences
             ExplicitLeft = 57
           end
           object Label3: TLabel
-            Left = 33
+            Left = -49
             Top = 23
             Width = 120
             Height = 13
@@ -755,7 +738,7 @@ object Preferences: TPreferences
             ExplicitLeft = 57
           end
           object Label4: TLabel
-            Left = 33
+            Left = -49
             Top = 91
             Width = 120
             Height = 13
@@ -766,7 +749,7 @@ object Preferences: TPreferences
             ExplicitLeft = 57
           end
           object Label11: TLabel
-            Left = 33
+            Left = -49
             Top = 40
             Width = 120
             Height = 13
@@ -777,18 +760,18 @@ object Preferences: TPreferences
             ExplicitLeft = 57
           end
           object Label12: TLabel
-            Left = 33
+            Left = -49
             Top = 57
             Width = 120
             Height = 13
             Alignment = taRightJustify
             Anchors = [akTop, akRight]
             AutoSize = False
-            Caption = 'Company Name:'
+            Caption = 'Company:'
             ExplicitLeft = 57
           end
           object Label13: TLabel
-            Left = 33
+            Left = -49
             Top = 74
             Width = 120
             Height = 13
@@ -799,7 +782,7 @@ object Preferences: TPreferences
             ExplicitLeft = 57
           end
           object Label14: TLabel
-            Left = 33
+            Left = -49
             Top = 108
             Width = 120
             Height = 13
@@ -811,13 +794,15 @@ object Preferences: TPreferences
           end
         end
         object paInfoRight: TPanel
-          Left = 153
+          Left = 71
           Top = 0
-          Width = 165
+          Width = 247
           Height = 490
           Align = alClient
           BevelOuter = bvNone
           TabOrder = 1
+          ExplicitLeft = 153
+          ExplicitWidth = 165
           object Label16: TLabel
             Left = 2
             Top = 6
@@ -889,33 +874,38 @@ object Preferences: TPreferences
             ParentFont = False
             OnClick = Label20Click
           end
-          object Label21: TLabel
+          object laWeb: TLabel
             Left = 2
             Top = 91
             Width = 160
             Height = 13
+            Cursor = crHandPoint
             AutoSize = False
-            Caption = 'N/A'
+            Caption = 'http://onesql.net'
             Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
+            Font.Color = clBlue
             Font.Height = -11
             Font.Name = 'Tahoma'
             Font.Style = [fsBold]
             ParentFont = False
+            OnClick = laWebClick
           end
           object Label22: TLabel
             Left = 2
             Top = 108
-            Width = 160
+            Width = 239
             Height = 13
+            Cursor = crHandPoint
             AutoSize = False
-            Caption = 'N/A'
+            Caption = 'https://github.com/CrAsH1101/OneSQL'
             Font.Charset = DEFAULT_CHARSET
-            Font.Color = clWindowText
+            Font.Color = clBlue
             Font.Height = -11
             Font.Name = 'Tahoma'
             Font.Style = [fsBold]
             ParentFont = False
+            WordWrap = True
+            OnClick = laWebClick
           end
         end
       end

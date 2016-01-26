@@ -91,7 +91,7 @@ type
     laVersion: TLabel;
     Label19: TLabel;
     Label20: TLabel;
-    Label21: TLabel;
+    laWeb: TLabel;
     Label22: TLabel;
     GroupBox5: TGroupBox;
     Label18: TLabel;
@@ -109,9 +109,9 @@ type
     procedure ceNullStringBackgroundPropertiesInitPopup(Sender: TObject);
     procedure buNullStringBoldClick(Sender: TObject);
     procedure buNullStringItalicClick(Sender: TObject);
-    procedure tsAboutResize(Sender: TObject);
     procedure Label20Click(Sender: TObject);
     procedure buSqlDirectoryClick(Sender: TObject);
+    procedure laWebClick(Sender: TObject);
   private
     { Private declarations }
     procedure Preview;
@@ -294,6 +294,16 @@ begin
   ShellExecute( Application.Handle,'open', PChar(S), nil, nil, SW_SHOWNORMAL);
 end;
 
+procedure TPreferences.laWebClick(Sender: TObject);
+var
+  S: String;
+begin
+  S := TLabel(Sender).Caption;
+  if dm.GetWineAvail() then
+    S := 'winebrowser ' + S;
+  ShellExecute( Application.Handle,'open', PChar(S), nil, nil, SW_SHOWNORMAL);
+end;
+
 procedure TPreferences.FormCreate(Sender: TObject);
 var
   IniFile: TIniFile;
@@ -442,11 +452,6 @@ begin
   if buStringsItalic.Down then
     Styles := Styles + [fsItalic];
   syntax.StringAttri.Style := Styles;
-end;
-
-procedure TPreferences.tsAboutResize(Sender: TObject);
-begin
-  paInfoLeft.Width := Round(tsAbout.Width div 2);
 end;
 
 end.
