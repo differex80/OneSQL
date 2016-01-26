@@ -69,7 +69,7 @@ object Preferences: TPreferences
       Height = 518
       Align = alClient
       TabOrder = 0
-      Properties.ActivePage = tsAbout
+      Properties.ActivePage = tsGeneral
       Properties.CustomButtons.Buttons = <>
       ClientRectBottom = 514
       ClientRectLeft = 4
@@ -154,6 +154,10 @@ object Preferences: TPreferences
       object tsEditor: TcxTabSheet
         BorderWidth = 4
         Caption = 'SQL Editor'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object GroupBox1: TGroupBox
           Left = 0
           Top = 0
@@ -579,6 +583,10 @@ object Preferences: TPreferences
       object tsGrid: TcxTabSheet
         BorderWidth = 4
         Caption = 'Data Grid'
+        ExplicitLeft = 0
+        ExplicitTop = 0
+        ExplicitWidth = 0
+        ExplicitHeight = 0
         object GroupBox3: TGroupBox
           Left = 0
           Top = 0
@@ -801,8 +809,6 @@ object Preferences: TPreferences
           Align = alClient
           BevelOuter = bvNone
           TabOrder = 1
-          ExplicitLeft = 153
-          ExplicitWidth = 165
           object Label16: TLabel
             Left = 2
             Top = 6
