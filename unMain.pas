@@ -87,7 +87,6 @@ type
     buExportHTML: TcxButton;
     buCommit: TcxButton;
     buRollback: TcxButton;
-    DataSource1: TDataSource;
     tiOpen: TTimer;
     buPreferences: TcxButton;
     tiSearch: TTimer;
@@ -101,11 +100,7 @@ type
     miSelectForUpdate: TMenuItem;
     buHistory: TcxButton;
     buCancelExec: TcxButton;
-    FDMetaInfoQuery1: TFDMetaInfoQuery;
-    FDConnection1: TFDConnection;
-    DBGrid1: TDBGrid;
     guiCursor: TFDGUIxWaitCursor;
-    FDQuery1: TFDQuery;
     SQLiteLogCon: TFDConnection;
     qLog: TFDCommand;
     execDialog: TFDGUIxAsyncExecuteDialog;
@@ -1566,7 +1561,6 @@ begin
         end;
       end;
       GetSessionObjects(Session);
-      FDQuery1.Connection := Session;
     end;
   finally
     IniFile.Free;

@@ -281,24 +281,10 @@ object main: Tmain
       ClientRectTop = 4
     end
   end
-  object DBGrid1: TDBGrid
-    Left = 22
-    Top = 128
-    Width = 675
-    Height = 241
-    DataSource = DataSource1
-    TabOrder = 2
-    TitleFont.Charset = DEFAULT_CHARSET
-    TitleFont.Color = clWindowText
-    TitleFont.Height = -11
-    TitleFont.Name = 'Tahoma'
-    TitleFont.Style = []
-    Visible = False
-  end
   object ac: TActionList
     Images = dm.imList
-    Left = 56
-    Top = 64
+    Left = 8
+    Top = 40
     object acNewSession: TAction
       ImageIndex = 0
       OnExecute = acNewSessionExecute
@@ -330,8 +316,8 @@ object main: Tmain
   end
   object pmTab: TPopupMenu
     Images = dm.imListSmall
-    Left = 88
-    Top = 64
+    Left = 80
+    Top = 40
     object pmClose: TMenuItem
       Caption = 'Close'
       ImageIndex = 1
@@ -346,52 +332,47 @@ object main: Tmain
   object odSQL: TOpenDialog
     DefaultExt = 'sql'
     Filter = 'SQL Files|*.sql|Text Files|*.txt|All Formats|*.*'
-    Left = 240
-    Top = 64
+    Left = 280
+    Top = 40
   end
   object sdSQL: TSaveDialog
     DefaultExt = 'sql'
     Filter = 'SQL files|*.sql'
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
     Left = 200
-    Top = 64
+    Top = 40
   end
   object sdExport: TSaveDialog
     Options = [ofOverwritePrompt, ofHideReadOnly, ofEnableSizing]
-    Left = 160
-    Top = 64
-  end
-  object DataSource1: TDataSource
-    DataSet = FDMetaInfoQuery1
-    Left = 520
-    Top = 400
+    Left = 240
+    Top = 40
   end
   object tiOpen: TTimer
     Interval = 500
     OnTimer = tiOpenTimer
     Left = 120
-    Top = 64
+    Top = 40
   end
   object tiSearch: TTimer
     Enabled = False
     OnTimer = tiSearchTimer
-    Left = 272
-    Top = 64
+    Left = 160
+    Top = 40
   end
   object FindDialog: TFindDialog
     Options = [frDown, frFindNext, frHideMatchCase, frHideWholeWord, frReplace, frReplaceAll]
-    Left = 320
-    Top = 65
+    Left = 328
+    Top = 41
   end
   object SynSearch: TSynEditSearch
-    Left = 368
-    Top = 64
+    Left = 384
+    Top = 40
   end
   object pmEditor: TPopupMenu
     Images = dm.imListSmall
     OnPopup = pmEditorPopup
-    Left = 24
-    Top = 64
+    Left = 40
+    Top = 40
     object miChangeQuote: TMenuItem
       Caption = 'Replace "qoutes" with '#39'qoutes'#39
       ImageIndex = 23
@@ -405,50 +386,10 @@ object main: Tmain
       OnClick = miSelectForUpdateClick
     end
   end
-  object FDMetaInfoQuery1: TFDMetaInfoQuery
-    Connection = FDConnection1
-    FetchOptions.AssignedValues = [evMode, evItems, evUnidirectional, evCursorKind, evAutoFetchAll, evDetailOptimize, evLiveWindowFastFirst]
-    FetchOptions.DetailOptimize = False
-    ResourceOptions.AssignedValues = [rvParamCreate, rvMacroCreate, rvMacroExpand, rvParamExpand, rvEscapeExpand, rvDirectExecute, rvUnifyParams, rvStorePrettyPrint]
-    ResourceOptions.ParamCreate = False
-    ResourceOptions.MacroCreate = False
-    ResourceOptions.ParamExpand = False
-    ResourceOptions.MacroExpand = False
-    ResourceOptions.EscapeExpand = False
-    ResourceOptions.StorePrettyPrint = True
-    ResourceOptions.UnifyParams = True
-    MetaInfoKind = mkProcs
-    TableKinds = [tkTable]
-    SchemaName = 'BUDGET'
-    BaseObjectName = 'AZURIRAJ'
-    Left = 740
-    Top = 230
-  end
-  object FDConnection1: TFDConnection
-    Params.Strings = (
-      'DriverID=Ora'
-      'Database=193.198.20.53'
-      'Password=alienware'
-      'User_Name=budget'
-      'Port=3308'
-      'Server=localhost')
-    FetchOptions.AssignedValues = [evDetailOptimize]
-    ResourceOptions.AssignedValues = [rvDirectExecute, rvAutoReconnect]
-    ResourceOptions.DirectExecute = True
-    ResourceOptions.AutoReconnect = True
-    LoginPrompt = False
-    Left = 772
-    Top = 174
-  end
   object guiCursor: TFDGUIxWaitCursor
     Provider = 'Forms'
-    Left = 524
-    Top = 62
-  end
-  object FDQuery1: TFDQuery
-    Connection = FDConnection1
-    Left = 772
-    Top = 318
+    Left = 540
+    Top = 40
   end
   object SQLiteLogCon: TFDConnection
     Params.Strings = (
@@ -461,8 +402,8 @@ object main: Tmain
     FormatOptions.AssignedValues = [fvDefaultParamDataType]
     FormatOptions.DefaultParamDataType = ftString
     LoginPrompt = False
-    Left = 420
-    Top = 62
+    Left = 448
+    Top = 40
   end
   object qLog: TFDCommand
     Connection = SQLiteLogCon
@@ -473,13 +414,13 @@ object main: Tmain
       
         'insert into sql_history (sess, statement) values ('#39'WebBudget'#39','#39's' +
         'elect * from korisnik'#39');')
-    Left = 456
-    Top = 64
+    Left = 499
+    Top = 40
   end
   object execDialog: TFDGUIxAsyncExecuteDialog
     Provider = 'Forms'
     Caption = 'OneSQL working'
-    Left = 600
-    Top = 64
+    Left = 594
+    Top = 40
   end
 end

@@ -62,7 +62,6 @@ type
     cbAutoCommit: TCheckBox;
     cbUseUnicode: TCheckBox;
     Connection: TFDConnection;
-    fdmanager: TFDManager;
     procedure FormCreate(Sender: TObject);
     procedure cbProviderChange(Sender: TObject);
     procedure acCancelExecute(Sender: TObject);

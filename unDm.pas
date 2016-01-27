@@ -6,7 +6,7 @@ uses
   SysUtils, Classes, ImgList, Controls, cxStyles, cxClasses, cxGraphics,
   DB, DBAccess, cxPC, IniFiles, unMain, Forms,
   windows, System.UITypes, System.Types,
-  ScBridge, ScSSHClient, ScSSHChannel, ScSSHUtil,
+  ScBridge, ScSSHClient, ScSSHChannel, ScSSHUtils,
   cxGrid, cxGridCustomView, cxGridCustomTableView, cxGridDBTableView, cxGridTableView,
   cxControls, SynEdit, SynEditHighlighter, SynHighlighterSQL, Graphics, DateUtils,
   //AsyncCalls,
@@ -53,8 +53,6 @@ type
     NullString: TcxStyle;
     GridHeader: TcxStyle;
     keyStorage: TScFileStorage;
-    FDQuery1: TFDQuery;
-    FDCommand1: TFDCommand;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
   private
@@ -128,6 +126,7 @@ begin
   end;
   sshClient := TScSshClient.Create(Owner);
   sshClient.KeyStorage := keyStorage;
+  sshClient.HostKeyAlgorithms.asString := 'ssh-rsa,ssh-dss';
   if key <> nil then
   begin
     sshClient.Authentication := atPublicKey;

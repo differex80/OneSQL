@@ -2510,16 +2510,8 @@ object dm: Tdm
     end
   end
   object keyStorage: TScFileStorage
-    Algorithm = saAES128
-    Left = 152
+    Algorithm = saTripleDES_ctr
+    Left = 144
     Top = 16
-  end
-  object FDQuery1: TFDQuery
-    Left = 248
-    Top = 160
-  end
-  object FDCommand1: TFDCommand
-    Left = 256
-    Top = 168
   end
 end

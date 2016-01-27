@@ -416,8 +416,7 @@ object sessionForm: TsessionForm
     end
   end
   object odKey: TOpenDialog
-    DefaultExt = 'ppk'
-    Filter = 'Putty Private Key|*.ppk|OpenSSH Private key|*.pem|All Files|*.*'
+    Filter = 'OpenSSH Private key'
     Title = 'Open Private SSH Key'
     Left = 304
     Top = 224
@@ -430,13 +429,5 @@ object sessionForm: TsessionForm
     LoginPrompt = False
     Left = 24
     Top = 341
-  end
-  object fdmanager: TFDManager
-    FormatOptions.AssignedValues = [fvMapRules]
-    FormatOptions.OwnMapRules = True
-    FormatOptions.MapRules = <>
-    Active = True
-    Left = 184
-    Top = 320
   end
 end
