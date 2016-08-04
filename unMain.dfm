@@ -275,6 +275,7 @@ object main: Tmain
       LookAndFeel.NativeStyle = True
       OnCanCloseEx = pcSessionsCanCloseEx
       OnChange = pcSessionsChange
+      ExplicitTop = 3
       ClientRectBottom = 656
       ClientRectLeft = 4
       ClientRectRight = 996
@@ -348,6 +349,7 @@ object main: Tmain
     Top = 40
   end
   object tiOpen: TTimer
+    Enabled = False
     Interval = 500
     OnTimer = tiOpenTimer
     Left = 120
@@ -388,6 +390,7 @@ object main: Tmain
   end
   object guiCursor: TFDGUIxWaitCursor
     Provider = 'Forms'
+    ScreenCursor = gcrNone
     Left = 540
     Top = 40
   end
@@ -401,6 +404,7 @@ object main: Tmain
       'LockingMode=Normal')
     FormatOptions.AssignedValues = [fvDefaultParamDataType]
     FormatOptions.DefaultParamDataType = ftString
+    Connected = True
     LoginPrompt = False
     Left = 448
     Top = 40
@@ -419,7 +423,6 @@ object main: Tmain
   end
   object execDialog: TFDGUIxAsyncExecuteDialog
     Provider = 'Forms'
-    Caption = 'OneSQL working'
     Left = 594
     Top = 40
   end

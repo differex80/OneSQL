@@ -236,6 +236,7 @@ object history: Thistory
       BlobType = ftMemo
     end
     object qHistoryts: TDateTimeField
+      DisplayLabel = 'Timestamp'
       FieldName = 'ts'
       Origin = 'ts'
     end

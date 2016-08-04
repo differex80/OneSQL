@@ -4,28 +4,29 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, DB, DBAccess, MemDS, ActnList, ImgList, OleCtrls, ComCtrls,
+  Dialogs, DB, DBAccess, MemDS, ActnList, ImgList, OleCtrls, ComCtrls, DateUtils,
   cxGraphics, cxControls, cxLookAndFeels, cxLookAndFeelPainters, cxContainer,
   cxEdit, cxStyles, cxCustomData, cxFilter, cxData, cxDataStorage, cxDBData,
   cxGridLevel, cxClasses, IniFiles, cxGridCustomView, cxGridCustomTableView,
   cxGridTableView, cxGridDBTableView, cxGrid, cxMemo, Menus, StdCtrls,
-  cxButtons,
+  cxButtons, cxGridDBDataDefinitions,
   ExtCtrls, cxPC, cxSplitter, cxGridCustomPopupMenu, cxGridPopupMenu,
   cxPCdxBarPopupMenu, cxTreeView, cxVGrid, cxDBVGrid, cxInplaceContainer,
   cxGridExportLink, cxExport, cxNavigator, cxTextEdit, cxMaskEdit,
   cxDropDownEdit, cxImageComboBox, ioutils, unEncrypt,
-  ScSshClient,
-  AsyncCalls, System.UITypes, System.Types,
+  ScSshClient, //AsyncCalls,
+  System.UITypes, System.Types,
   SynEdit, SynEditHighlighter, SynHighlighterSQL, StrUtils, ShellApi, SHFolder,
   SynEditMiscClasses, SynEditSearch, SQLMemMain, cxBlobEdit, dxBarBuiltInMenu,
-  System.Actions, System.Character, Vcl.Grids, Vcl.DBGrids, SynDBEdit,
+  System.Actions, System.Character, SynDBEdit,
   FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Error, FireDAC.UI.Intf,
   FireDAC.Phys.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool, FireDAC.Stan.Async,
   FireDAC.Phys, FireDAC.Comp.Client, FireDAC.Stan.Param, FireDAC.DatS,
   FireDAC.DApt.Intf, FireDAC.DApt, FireDAC.Comp.DataSet, FireDAC.Phys.Oracle,
   FireDAC.Phys.OracleDef, FireDAC.VCLUI.Wait, FireDAC.Comp.UI,
-  FireDAC.Phys.MySQL, FireDAC.Phys.MySQLDef, FireDAC.Phys.SQLite,
-  FireDAC.Phys.SQLiteDef, FireDAC.Stan.ExprFuncs, FireDAC.VCLUI.Async;
+  FireDAC.Phys.MySQL, FireDAC.Phys.MySQLDef,
+  FireDAC.Phys.SQLiteDef, FireDAC.Stan.ExprFuncs, FireDAC.VCLUI.Async,
+  FireDAC.Phys.SQLite;
 
 const
   maxParams = 20;
@@ -52,11 +53,17 @@ type
   TQueryThread = Class(TThread)
   private
     fQuery : TFDQuery;
+    fCommand: TFDCommand;
+    fError : String;
+    fDuration: Integer;
   protected
     procedure Execute; override;
   public
-    constructor Create(aQuery : TFDQuery); reintroduce;
-    property Query : TFDQuery read fQuery;
+    constructor Create(aQuery : TFDQuery; aCommand: TFDCommand); reintroduce;
+    property Query: TFDQuery read fQuery;
+    property Command: TFDCommand read fCommand;
+    property Error: String read fError;
+    property Duration: Integer read fDuration;
   End;
 
   Tmain = class(TForm)
@@ -132,10 +139,10 @@ type
     procedure miSelectForUpdateClick(Sender: TObject);
     procedure pmEditorPopup(Sender: TObject);
     procedure buHistoryClick(Sender: TObject);
+    procedure cxButton1Click(Sender: TObject);
   private
     EditorParams: TEditorParams;
     cNullString: String;
-    //Tunnel: TChilkatSshTunnel;
     procedure InitParams(var P: TParams);
     procedure InitEditorParams(var EP: TEditorParams);
     procedure SaveParams(Editor: TSynEdit; FileName: TFileName; Params: TParams);
@@ -145,6 +152,7 @@ type
     function IsTextFile(const sFile: TFileName): Boolean;
 
     procedure GetSessionObjects(Conn: TFDConnection);
+    procedure GetForeignKeys(Meta: TFDMetaInfoQuery; Root: TTreeNode; lCallback: Boolean = False);
     function GetActiveEditorParamCount: Integer;
     function GetDataType(ParamType: String): TFieldType;
     function GetActiveEditorPC: TcxPageControl;
@@ -209,6 +217,9 @@ type
       var AHandled: Boolean);
     function GetEditorFileName(Editor: TSynEdit): TFileName;
     procedure OnBeforeQueryPost(DataSet: TDataSet);
+    procedure ThreadedMetaAfterOpen(DataSet: TDataSet);
+    function GetNodeByText(ATree: TcxTreeView; AValue: String;
+      AVisible: Boolean): TTreeNode;
   public
     procedure ShowError(sMessage: String);
     procedure ExecuteSQLCallback(EditorTab: TcxTabSheet; Query: TFDQuery; SQL: TFDCommand;
@@ -228,15 +239,31 @@ uses unParamForm, unSessionForm, unDm, unSessionManager, unPreferences,
 type
   TcxPageControlPropertiesAccess = class(TcxPageControlProperties);
 
-constructor TQueryThread.Create(aQuery: TFDQuery);
+constructor TQueryThread.Create(aQuery: TFDQuery; aCommand: TFDCommand);
 begin
   inherited Create(true);
   fQuery := aQuery;
+  fCommand := aCommand;
+  fError := '';
+  fDuration := 0;
 end;
 
 procedure TQueryThread.Execute;
+var
+  iTime: TDateTime;
 begin
-  fQuery.Open;
+  try
+    iTime := now;
+    if (fCommand <> nil) then
+      fCommand.Execute
+    else
+      fQuery.Open;
+    fDuration := MilliSecondsBetween(now, iTime);
+  except on E: Exception do
+    begin
+      fError := E.Message;
+    end;
+  end;
 end;
 
 procedure Tmain.OpenQuery(aTab: TcxTabSheet; aQuery: TFDQuery; aCommand: TFDCommand; aGridView: TcxGridDBTableView);
@@ -245,8 +272,7 @@ var
   n: Cardinal;
   worker: TQueryThread;
 begin
-  //aQuery.SQL.Text = 'SELECT * FROM test'
-  worker := TQueryThread.Create(aQuery);
+  worker := TQueryThread.Create(aQuery, aCommand);
   try
     worker.Start;
     setLength(t, 1);
@@ -261,12 +287,12 @@ begin
         end;
       end;
   finally
-    ExecuteSQLCallback(aTab, aQuery, aCommand, aGridView, '');
+    aTab.Hint := FormatFloat('0.000', worker.Duration /1000) + ' sec';
+    ExecuteSQLCallback(aTab, aQuery, aCommand, aGridView, worker.Error);
     worker.Terminate;
     worker.WaitFor;
     FreeAndNil(worker);
   end;
-//  Work(worker);
 end;
 
 procedure Tmain.pmCloseClick(Sender: TObject);
@@ -415,15 +441,19 @@ var
   DataSet: TFDQuery;
 begin
   Grid := GetDataGridView(GetActiveEditorPC.ActivePage);
-//  Grid := GetDataGridView(TcxButton(Sender).Parent.Parent.Parent);
   if Grid = nil then
     Exit;
+  TcxTabSheet(GetStatusGridView(GetActiveEditorPC.ActivePage).Control.Parent).Caption := 'Canceling...';
+  TcxTabSheet(GetStatusGridView(GetActiveEditorPC.ActivePage).Control.Parent).ImageIndex := 28;
   TcxButton(Sender).Enabled := False;
   DataSet := TFDQuery(Grid.DataController.DataSource.DataSet);
   DataSet.Tag := 1;
-  //TWorkerCancel.Create(DataSet);
-  DataSet.AbortJob;
-//  DataSet.Cancel;
+  DataSet.Connection.AbortJob;
+end;
+
+procedure Tmain.cxButton1Click(Sender: TObject);
+begin
+  GetSessionObjects(GetSession(pcSessions.ActivePage.Caption));
 end;
 
 procedure Tmain.cxButton3Click(Sender: TObject);
@@ -465,10 +495,28 @@ end;
 procedure Tmain.OnAutoCommitChange(Sender: TObject);
 var
   Conn: TFDConnection;
+  iCommit: Integer;
 begin
+  if TcxImageComboBox(Sender).Tag = 1 then
+  begin
+    TcxImageComboBox(Sender).Tag := 0;
+    Exit;
+  end;
   Conn := GetSession(pcSessions.ActivePage.Caption);
   if Conn = nil then
     Exit;
+  if (not Conn.TxOptions.AutoCommit) and (Conn.InTransaction) then
+  begin
+    iCommit := messagedlg('Non-commited changes found! Commit?', mtCustom, [mbYes,mbNo,mbCancel], 0);
+    if iCommit = mrYes then Conn.Commit;
+    if iCommit = mrNo then Conn.Rollback;
+    if iCommit = mrCancel then
+    begin
+      TcxImageComboBox(Sender).Tag := 1;
+      TcxImageComboBox(Sender).ItemIndex := 1;
+      Exit;
+    end;
+  end;
   Conn.TxOptions.AutoCommit := TcxImageComboBox(Sender).ItemIndex = 0;
   EditorButtonState;
 end;
@@ -532,8 +580,7 @@ procedure Tmain.ObjectInspectorExpanding(Sender: TObject; Node: TTreeNode;
 var
   Conn: TFDConnection;
   Meta: TFDMetaInfoQuery;
-  TypeNode, Item: TTreeNode;
-  sLastAdded: String;
+  TypeNode, Item, ConstraintNode: TTreeNode;
 begin
   if Node.Level <> 1 then
     Exit;
@@ -545,6 +592,23 @@ begin
   Meta := GetMetaData;
   Meta.Active := False;
   try
+    { Package procedures/functions}
+    if pos('Packages', Node.Parent.Text) > 0 then
+    begin
+      Meta.MetaInfoKind := mkProcs;
+      Meta.BaseObjectName := Node.Text;
+      Meta.Active := True;
+      while not Meta.Eof do
+      begin
+        Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(Node, Meta.FieldByName('PROC_NAME').AsString);
+        if (Meta.FieldByName('PROC_TYPE').AsInteger = 1) then
+          Item.ImageIndex := 24
+        else
+          Item.ImageIndex := 16;
+        Item.SelectedIndex := Item.ImageIndex;
+        Meta.Next;
+      end;
+    end;
     if pos('Tables', Node.Parent.Text) > 0 then
     begin
       { Colums }
@@ -564,48 +628,18 @@ begin
       end;
       Meta.Active := False;
       { Constraints }
-      TypeNode := TcxTreeView(Node.TreeView.Parent).Items.AddChild(Node, 'Constraints');
-      TypeNode.ImageIndex := 13;
-      TypeNode.SelectedIndex := TypeNode.ImageIndex;
+      ConstraintNode := TcxTreeView(Node.TreeView.Parent).Items.AddChild(Node, 'Constraints');
+      ConstraintNode.ImageIndex := 13;
+      ConstraintNode.SelectedIndex := ConstraintNode.ImageIndex;
       { Primary keys }
       Meta.MetaInfoKind := mkPrimaryKey;
       Meta.Active := True;
       while not Meta.Eof do
       begin
-        Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode,
+        Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(ConstraintNode,
           Meta.FieldByName('PKEY_NAME').AsString);
         Item.Data := Pointer(1);
         Item.ImageIndex := 12;
-        Item.SelectedIndex := Item.ImageIndex;
-        Meta.Next;
-      end;
-      Meta.Active := False;
-      { Foreign keys }
-      Meta.MetaInfoKind := mkForeignKeys;
-      if Meta.CatalogName <> '' then
-        Meta.Filter := 'pkey_catalog_name=''' + Meta.CatalogName + '''';
-      if Meta.SchemaName <> '' then
-      begin
-        if Meta.Filter <> '' then
-          Meta.Filter := Meta.Filter + ' and pkey_schema_name=''' + Meta.SchemaName + ''''
-        else
-          Meta.Filter := 'pkey_schema_name=''' + Meta.SchemaName + '''';
-      end;
-      if Meta.Filter <> '' then
-        Meta.Filtered := True;
-      Meta.Active := True;
-      sLastAdded := '';
-      while not Meta.Eof do
-      begin
-        if sLastAdded = Meta.FieldByName('FKEY_NAME').AsString then
-        begin
-          Meta.Next;
-          Continue;
-        end;
-        Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(TypeNode,
-          Meta.FieldByName('FKEY_NAME').AsString);
-        sLastAdded := Meta.FieldByName('FKEY_NAME').AsString;
-        Item.ImageIndex := 13;
         Item.SelectedIndex := Item.ImageIndex;
         Meta.Next;
       end;
@@ -627,26 +661,67 @@ begin
         Meta.Next;
       end;
       Meta.Active := False;
-    end;
-    { Package procedures/functions}
-    if pos('Packages', Node.Parent.Text) > 0 then
-    begin
-      Meta.MetaInfoKind := mkProcs;
-      Meta.BaseObjectName := Node.Text;
-      Meta.Active := True;
-      while not Meta.Eof do
-      begin
-        Item := TcxTreeView(Node.TreeView.Parent).Items.AddChild(Node, Meta.FieldByName('PROC_NAME').AsString);
-        if (Meta.FieldByName('PROC_TYPE').AsInteger = 1) then
-          Item.ImageIndex := 24
-        else
-          Item.ImageIndex := 16;
-        Item.SelectedIndex := Item.ImageIndex;
-        Meta.Next;
-      end;
+      { Slow Meta data are fetched in separate thread }
+      { Foreign Keys }
+      GetForeignKeys(Meta, ConstraintNode);
     end;
   finally
     Meta.Active := False;
+  end;
+end;
+
+procedure Tmain.GetForeignKeys(Meta: TFDMetaInfoQuery; Root: TTreeNode; lCallback: Boolean = False);
+var
+  MetaTemplate: TFDMetaInfoQuery;
+  sLastAdded: String;
+  Item: TTreeNode;
+begin
+  if (not lCallback) then
+  begin
+    MetaTemplate := Meta;
+    Meta := TFDMetaInfoQuery.Create(MetaTemplate.Owner);
+    Meta.Name := MetaTemplate.Name + IntToStr(MilliSecondsBetween(Now, 0));
+    Meta.Connection := MetaTemplate.Connection;
+    Meta.CatalogName := MetaTemplate.CatalogName;
+    Meta.SchemaName := MetaTemplate.SchemaName;
+    Meta.ObjectName := MetaTemplate.ObjectName;
+    Meta.BaseObjectName := MetaTemplate.BaseObjectName;
+    Meta.ResourceOptions.CmdExecMode := amAsync;
+    Meta.Tag := 1;
+    Meta.Active := False;
+    Meta.MetaInfoKind := mkForeignKeys;
+    if Meta.CatalogName <> '' then
+      Meta.Filter := 'pkey_catalog_name=''' + Meta.CatalogName + '''';
+    if Meta.SchemaName <> '' then
+    begin
+      if Meta.Filter <> '' then
+        Meta.Filter := Meta.Filter + ' and pkey_schema_name=''' + Meta.SchemaName + ''''
+      else
+        Meta.Filter := 'pkey_schema_name=''' + Meta.SchemaName + '''';
+    end;
+    if Meta.Filter <> '' then
+      Meta.Filtered := True;
+    Meta.AfterOpen := ThreadedMetaAfterOpen;
+    Meta.Open;
+  end
+  else
+  begin
+    sLastAdded := '';
+    while not Meta.Eof do
+    begin
+      if sLastAdded = Meta.FieldByName('FKEY_NAME').AsString then
+      begin
+        Meta.Next;
+        Continue;
+      end;
+      Item := TcxTreeView(Root.TreeView.Parent).Items.AddChild(Root, Meta.FieldByName('FKEY_NAME').AsString);
+      sLastAdded := Meta.FieldByName('FKEY_NAME').AsString;
+      Item.ImageIndex := 13;
+      Item.SelectedIndex := Item.ImageIndex;
+      Meta.Next;
+    end;
+    Meta.Active := False;
+    FreeAndNil(Meta);
   end;
 end;
 
@@ -855,7 +930,7 @@ var
   Tab, tsGrid, tsStatus: TcxTabSheet;
   pcResults: TcxPageControl;
   Conn: TFDConnection;
-  paEditor, paGrids, StatusPanel: TPanel;
+  paEditor, paGrids: TPanel;
   cxDataGrid, cxStatusGrid: TcxGrid;
   cxDataGridLevel, cxStatusGridLevel: TcxGridLevel;
   cxDataGridView: TcxGridDBTableView;
@@ -960,36 +1035,6 @@ begin
     Parent := Tab;
   end;
 {$ENDREGION}
-{$REGION 'Create Ststus panel'}
-  StatusPanel := TPanel.Create(Tab);
-  with StatusPanel do
-  begin
-    Parent := paGrids;
-    Name := 'paStatus' + pcEditors.Name + IntToStr(pcEditors.Tag);
-    BevelOuter := bvNone;
-    Align := alBottom;
-    Height := 25;
-    AlignWithMargins := True;
-    Margins.Top := 4;
-    Margins.Left := 4;
-    Margins.Right := 0;
-    Margins.Bottom := 0;
-    Caption := '';
-  end;
-{$ENDREGION}
-  { Create Cancel execution button }
-  with TcxButton.Create(Tab) do
-  begin
-    Parent := StatusPanel;
-    Name := 'buCancelExec' + pcEditors.Name + IntToStr(pcEditors.Tag);
-    Caption := 'Cancel Execition';
-    Align := alRight;
-    Width := 110;
-    OptionsImage.Images := dm.imListSmall;
-    OptionsImage.ImageIndex := 1;
-    Enabled := False;
-    OnClick := CancelExecute;
-  end;
   { Create Results page control }
   pcResults := TcxPageControl.Create(Tab);
   with pcResults do
@@ -1012,7 +1057,7 @@ begin
     Margins.Bottom := 2;
     Margins.Left := 1;
   end;
-  { Create Results Data tab }
+  { Create Status tab }
   tsStatus := TcxTabSheet.Create(pcResults);
   with tsStatus do
   begin
@@ -1025,22 +1070,16 @@ begin
   begin
     Name := 'sSQL' + pcEditors.Name + IntToStr(pcEditors.Tag);
     Connection := Conn;
-    if not Conn.TxOptions.AutoCommit then
-      Transaction := Conn.Transaction;
   end;
   { Create Querry - For select statements }
   Query := TFDQuery.Create(Tab);
-  //Query.Connection := Conn;
   with Query do
   begin
     Name := 'qSQL' + pcEditors.Name + IntToStr(pcEditors.Tag);
     Connection := Conn;
-    if not Conn.TxOptions.AutoCommit then
-      Transaction := Conn.Transaction;
     { Start transaction if editing thru grid }
     BeforePost := OnBeforeQueryPost;
-    //BeforeDelete := OnBeforeQueryPost;
-    //BeforeFetch := OnBeforeFetch;
+    BeforeDelete := OnBeforeQueryPost;
   end;
 
   { Create Data Source }
@@ -1085,13 +1124,11 @@ begin
     OptionsBehavior.IncSearch := True;
     OptionsBehavior.BestFitMaxRecordCount := 5;
     OptionsData.Inserting := False;
-    // OptionsData.Editing := False;
     OptionsData.Deleting := False;
     Styles.Content := dm.GridContent;
     Styles.ContentOdd := dm.GridAltRow;
     Styles.Header := dm.GridHeader;
     Styles.onGetContentStyle := onGetContentStyle;
-    // OnCellDblClick := onDataGridDblClick;
   end;
   { Assign Grid View to Grid Level }
   cxDataGridLevel.GridView := cxDataGridView;
@@ -1232,12 +1269,14 @@ begin
     { Find Editor and DataGrid styles }
     Config := dm.GetConfigIniFile;
     try
+      Screen.Cursor := crHourGlass;
       Tab.ImageIndex := dm.getConnectionImage(IniFile.ReadInteger(SessionName,
         'db_environment', -1));
       { Create schema browser }
       browserPanel := TPanel.Create(Tab);
       with browserPanel do
       begin
+        Visible := False;
         Parent := Tab;
         Name := 'paBrowser' + Tab.Name;
         BevelOuter := bvNone;
@@ -1284,25 +1323,6 @@ begin
         end;
         for i := 0 to FieldDefs.Count - 1 do
           FieldDefs[i].CreateField(memTable);
-
-        (* iField := TIntegerField.Create(memTable);
-          iField.FieldName := 'ID';
-          iField.DataSet := memTable;
-          iField.AutoGenerateValue := arAutoInc;
-          iField.FieldKind := fkInternalCalc;
-          iField := TIntegerField.Create(memTable);
-          iField.FieldName := 'ICON';
-          iField.DataSet := memTable;
-          iField.FieldKind := fkInternalCalc;
-          iField := TIntegerField.Create(memTable);
-          iField.FieldName := 'PARENT';
-          iField.DataSet := memTable;
-          iField.FieldKind := fkInternalCalc;
-          sField := TStringField.Create(memTable);
-          sField.FieldName := 'VALUE';
-          sField.DataSet := memTable;
-          sField.Size := 100;
-          sField.FieldKind := fkInternalCalc; *)
         if not Exists then
           CreateTable;
       end;
@@ -1338,6 +1358,7 @@ begin
       { Create Meta dataset }
       Meta := TFDMetaInfoQuery.Create(Tab);
       Meta.Name := 'mtInfo' + Tab.Name;
+      // Meta.ResourceOptions.CmdExecMode := amNonBlocking;
       { Create Data source for vertical grid - object informations }
       dsInfo := TDataSource.Create(Tab);
       with dsInfo do
@@ -1450,7 +1471,9 @@ begin
       end;
       SynSQL.SQLDialect := GetSyntaxType(Meta.Connection.DriverName);
       AddSqlEditor(PC);
+      browserPanel.Visible := True;
     finally
+      Screen.Cursor := crDefault;
       IniFile.Free;
       Config.Free;
     end;
@@ -1505,6 +1528,10 @@ begin
       Params.Password := String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'db_pass', '')),
         dm.encrypt_key));
       Params.DriverID := DriverName;
+      if IniFile.ReadBool(SessionName, 'db_auto_commit', False) then
+        Session.Tag := 1
+      else
+        Session.Tag := 0;
       TxOptions.AutoCommit := IniFile.ReadBool(SessionName, 'db_auto_commit', False);
       //if IniFile.ReadBool(SessionName, 'db_use_unicode', False) then
       //  SpecificOptions.Values['UseUnicode'] := 'True';
@@ -1641,7 +1668,7 @@ end;
 procedure Tmain.GetSessionObjects(Conn: TFDConnection);
 var
   Meta: TFDMetaInfoQuery;
-  TV: TcxTreeView;
+//  TV: TcxTreeView;
   SynSQL: TSynSQLSyn;
   List: TStringList;
   ParentID: Integer;
@@ -1650,13 +1677,15 @@ var
 begin
   if Conn = nil then
     Exit;
-  TV := GetObjectInspector(Conn);
-  TV.Items.Clear;
-  Meta := TFDMetaInfoQuery.Create(nil);
+//  TV := GetObjectInspector(Conn);
+//  TV.Items.Clear;
   List := TStringList.Create;
-  SynSQL := GetSyntaxSQL(TcxTabSheet(TV.Parent.Parent));
-  memTable := GetObjectMemTable(TcxTabSheet(TV.Parent.Parent));
+  SynSQL := GetSyntaxSQL(TcxTabSheet(Conn.Owner));
+  memTable := GetObjectMemTable(TcxTabSheet(Conn.Owner));
+  memTable.Close;
+  memTable.DeleteTable;
   memTable.Open;
+  Meta := TFDMetaInfoQuery.Create(nil);
   try
     Meta.Connection := Conn;
     SetMetaData(Meta);
@@ -1785,6 +1814,52 @@ begin
   GridView.Navigator.Visible := not TMenuItem(Sender).Checked;
   GridView.OptionsData.Inserting := not TMenuItem(Sender).Checked;
   GridView.OptionsData.Deleting := not TMenuItem(Sender).Checked;
+end;
+
+procedure Tmain.ThreadedMetaAfterOpen(DataSet: TDataSet);
+var
+  Meta: TFDMetaInfoQuery;
+  Node: TTreeNode;
+  i: Integer;
+  NodeText: String;
+begin
+  DataSet.AfterOpen := nil;
+  Meta := TFDMetaInfoQuery(DataSet);
+  case Meta.MetaInfoKind of
+    mkTableFields: NodeText := 'Columns';
+    mkIndexes: NodeText := 'Indexes';
+    mkForeignKeys: NodeText := 'Constraints';
+  end;
+  Node := GetNodeByText(GetObjectInspector(TFDConnection(Meta.Connection)), Meta.ObjectName, False);
+  for i := 0 to Node.Count -1 do
+  begin
+    if UpperCase(Node.Item[i].Text) = UpperCase(NodeText) then
+    begin
+      Node := Node.Item[i];
+      Break;
+    end;
+  end;
+  GetForeignKeys(TFDMetaInfoQuery(DataSet), Node ,True);
+end;
+
+function Tmain.GetNodeByText(ATree : TcxTreeView; AValue:String; AVisible: Boolean): TTreeNode;
+var
+  Node: TTreeNode;
+begin
+  Result := nil;
+  if ATree.Items.Count = 0 then Exit;
+  Node := ATree.Items[0];
+  while Node <> nil do
+  begin
+    if UpperCase(Node.Text) = UpperCase(AValue) then
+    begin
+      Result := Node;
+      if AVisible then
+        Result.MakeVisible;
+      Break;
+    end;
+    Node := Node.GetNext;
+  end;
 end;
 
 procedure Tmain.FormClose(Sender: TObject; var Action: TCloseAction);
@@ -1962,8 +2037,8 @@ begin
   Result := nil;
   for i := 0 to pcSessions.ActivePage.ComponentCount - 1 do
   begin
-    if pcSessions.ActivePage.Components[i] is TFDMetaInfoQuery then
-    begin
+    if (pcSessions.ActivePage.Components[i] is TFDMetaInfoQuery) and
+       (pcSessions.ActivePage.Components[i].Tag = 0) then begin
       Result := TFDMetaInfoQuery(pcSessions.ActivePage.Components[i]);
       break;
     end;
@@ -2471,7 +2546,6 @@ var
   Params: TParams;
   lSelect: Boolean;
   Conn: TFDConnection;
-//  Worker: TWorker;
 begin
   lSelect := False;
   GridView := GetDataGridView(Tab);
@@ -2485,6 +2559,16 @@ begin
   begin
     ShowMessage('ERROR! SQL Editor not found!!!');
     Exit;
+  end;
+  for i := 0 to Tab.PageControl.PageCount -1 do
+  begin
+    DataSet := TFDQuery(GetDataGridView(Tab.PageControl.Pages[i]).DataController.DataSet);
+    if (DataSet.Command.State = csExecuting) or (DataSet.Command.State = csFetching) then
+    begin
+      ShowMessage('Session busy! Executing/fetching in progres...');
+      Tab.PageControl.ActivePageIndex := i;
+      Exit;
+    end;
   end;
   Conn := GetSession(pcSessions.ActivePage.Caption);
   { Remove all empty lines }
@@ -2548,8 +2632,8 @@ begin
   end
   else
   begin
-    if (not Conn.ResourceOptions.AutoConnect) and (not SQL.Connection.InTransaction) then
-      SQL.Transaction.StartTransaction;
+    if (not Conn.TxOptions.AutoCommit) and (not Conn.InTransaction) then
+      Conn.StartTransaction;
     for i := 0 to SQL.Params.Count - 1 do
       Vars.Values[SQL.Params[i].Name] := 'PARAM';
     for i := 0 to SQL.Macros.Count - 1 do
@@ -2643,31 +2727,15 @@ begin
       Exit;
   end;
   GridView.BeginUpdate(lsimImmediate);
-  OpenQuery(Tab, DataSet, nil, GridView);
-//  ShowMessage('Done');
-(*  if lSelect then
-  begin
-    try
-      DataSet.Open;
-    finally
-      ExecuteSQLCallback(Tab, DataSet, nil, GridView, '');
-    end;
-  end
+  TcxPageControl(GridView.Control.Parent.Parent).ActivePageIndex := 0;
+  Tab.Hint := '';
+  TcxTabSheet(GetStatusGridView(Tab).Control.Parent).Caption := 'Executing...';
+  TcxTabSheet(GetStatusGridView(Tab).Control.Parent).ImageIndex := 27;
+  if (lSelect) then
+    OpenQuery(Tab, DataSet, nil, GridView)
   else
-  begin
-    try
-      SQL.Execute;
-    finally
-      ExecuteSQLCallback(Tab, nil, SQL, GridView, '');
-    end;
-  end;   *)
-    //DataSet.ExecSQL;
-(*  Worker := dm.GetTabWorker(pcSessions.ActivePage);
-  if lSelect then
-    Worker.AddWork(Tab, DataSet, nil, GridView)
-  else
-    Worker.AddWork(Tab, nil, SQL, GridView);
-*)
+    OpenQuery(Tab, nil, SQL, GridView);
+  Tab.Hint := '';
 end;
 
 procedure Tmain.ExecuteSQLCallback(EditorTab: TcxTabSheet; Query: TFDQuery; SQL: TFDCommand;
@@ -2676,28 +2744,41 @@ var
   i: Integer;
   iHistory: Int64;
   sCommand, sSqlText, sSession, sStatus: String;
+  lObjectInspectorRefresh: Boolean;
 begin
+  lObjectInspectorRefresh := False;
   try
     if (SQL <> nil) then
     begin
-      sSqlText := SQL.SQLText;
+      sSqlText := SQL.CommandText.Text;
       sSession := TcxTabSheet(SQL.Connection.Owner).Caption;
-      for i := 1 to Length(SQL.SQLText) do
-        if SQL.SQLText[i].IsWhiteSpace then
+      for i := 1 to Length(SQL.CommandText.Text) do
+        if SQL.CommandText.Text[i].IsWhiteSpace then
           break;
-      sCommand := copy(SQL.SQLText, 1, i - 1);
+      sCommand := copy(SQL.CommandText.Text, 1, i - 1);
       if sCommand = 'create' then
-        sStatus := 'Object successfully created'
+      begin
+        sStatus := 'Object successfully created';
+        lObjectInspectorRefresh := True;
+      end
       else if sCommand = 'alter' then
-        sStatus := 'Object successfully altered'
+      begin
+        sStatus := 'Object successfully altered';
+        lObjectInspectorRefresh := True;
+      end
       else if sCommand = 'drop' then
-        sStatus := 'Object successfully droped'
+      begin
+        sStatus := 'Object successfully droped';
+        lObjectInspectorRefresh := True;
+      end
       else if sCommand = 'insert' then
         sStatus := IntToStr(SQL.RowsAffected) + ' rows inserted'
       else if sCommand = 'update' then
         sStatus := IntToStr(SQL.RowsAffected) + ' rows updated'
       else if sCommand = 'delete' then
         sStatus := IntToStr(SQL.RowsAffected) + ' rows deleted';
+      if lObjectInspectorRefresh then
+        GetSessionObjects(TFDConnection(SQL.Connection));
     end
     else
     begin
@@ -2706,6 +2787,8 @@ begin
 
     if (Query <> nil) and (Query.Active) then
     begin
+      if (not Query.Connection.TxOptions.AutoCommit) and (not Query.Connection.InTransaction) then
+        Query.Connection.Rollback;
       sSqlText := Query.SQL.Text;
       sSession := TcxTabSheet(Query.Connection.Owner).Caption;
       GridView.DataController.CreateAllItems;
@@ -2736,8 +2819,7 @@ begin
     for i := 0 to TcxPageControl(GridView.Control.Parent.Parent).PageCount - 1 do
     begin
       if ((TcxPageControl(GridView.Control.Parent.Parent).Pages[i].Caption = 'Data') and
-        (Error = '')) or ((copy(TcxPageControl(GridView.Control.Parent.Parent).Pages[i].Caption, 1,
-        6) = 'Status') and (Error <> '')) then
+        (Error = '')) or ((TcxPageControl(GridView.Control.Parent.Parent).Pages[i].Caption <> 'Data') and (Error <> '')) then
       begin
         TcxPageControl(GridView.Control.Parent.Parent).ActivePage :=
           TcxPageControl(GridView.Control.Parent.Parent).Pages[i];
@@ -2750,7 +2832,8 @@ begin
     //CancelBtn := GetCancelButton(EditorTab);
     //if CancelBtn <> nil then
     //  CancelBtn.Enabled := False;
-    buCancelExec.Enabled := False;
+    if GetActiveEditorPC = EditorTab.PageControl then
+      buCancelExec.Enabled := False;
   end;
 end;
 
@@ -2767,7 +2850,7 @@ begin
     cxStatusGridView.DataController.Values[StatusRecNo, 1] := 1;
     cxStatusGridView.DataController.Values[StatusRecNo, 2] := Trim(Error);
     TcxTabSheet(cxStatusGridView.Control.Parent).ImageIndex := 1;
-    TcxTabSheet(cxStatusGridView.Control.Parent).Caption := 'Status (Error)';
+    TcxTabSheet(cxStatusGridView.Control.Parent).Caption := 'Error';
   end
   else
   begin
@@ -2775,6 +2858,8 @@ begin
     cxStatusGridView.DataController.Values[StatusRecNo, 2] := Trim(Status);
     TcxTabSheet(cxStatusGridView.Control.Parent).ImageIndex := 0;
     TcxTabSheet(cxStatusGridView.Control.Parent).Caption := 'Status';
+    if (Status <> '') then
+      TcxTabSheet(cxStatusGridView.Control.Parent).Caption := Status;
     if EditorTab.Hint <> '' then
       TcxTabSheet(cxStatusGridView.Control.Parent).Caption :=
         TcxTabSheet(cxStatusGridView.Control.Parent).Caption + ' (' + EditorTab.Hint + ')';
@@ -2782,6 +2867,7 @@ begin
   cxStatusGridView.DataController.Values[StatusRecNo, 3] := DateTimeToStr(now);
   cxStatusGridView.DataController.Values[StatusRecNo, 4] := EditorTab.Hint;
   cxStatusGridView.DataController.PostEditingData;
+  cxStatusGridView.DataController.GotoLast;
 end;
 
 procedure Tmain.ExportToFile(Format: string; DisableStyle: Boolean = False);
@@ -2952,9 +3038,11 @@ end;
 
 procedure Tmain.EditorButtonState;
 var
-  lNew, lOpen, lSave, lExport, lTransaction, lHistory: Boolean;
+  lNew, lOpen, lSave, lExport, lTransaction, lHistory, lCancel: Boolean;
   PC: TcxPageControl;
   Conn: TFDConnection;
+  DataSet: TFDQuery;
+  Grid: TcxGridDBTableView;
 begin
   lNew := False;
   lOpen := False;
@@ -2962,14 +3050,12 @@ begin
   lExport := False;
   lTransaction := False;
   lHistory := False;
+  lCancel := False;
   if pcSessions.PageCount > 0 then
   begin
     Conn := GetSession(pcSessions.ActivePage.Caption);
     if Conn <> nil then
       lTransaction := not Conn.TxOptions.AutoCommit;
-  end;
-  if pcSessions.PageCount > 0 then
-  begin
     lNew := True;
     lOpen := True;
     lHistory := True;
@@ -2977,10 +3063,19 @@ begin
     if PC = nil then
       Exit;
     if PC.PageCount > 0 then
-      lExport := True;
-    if pos('*', PC.ActivePage.Caption) > 0 then
     begin
-      lSave := True;
+      lExport := True;
+      if pos('*', PC.ActivePage.Caption) > 0 then
+      begin
+        lSave := True;
+      end;
+      Grid := GetDataGridView(PC.ActivePage);
+      if Grid <> nil then
+      begin
+        DataSet := TFDQuery(Grid.DataController.DataSet);
+        if ((DataSet.tag = 0) and ((DataSet.Command.State in [csExecuting, csFetching, csOpen]))) then
+          lCancel := True;
+      end;
     end;
   end;
   buNewEditor.Enabled := lNew;
@@ -2993,6 +3088,7 @@ begin
   buCommit.Enabled := lTransaction;
   buRollback.Enabled := lTransaction;
   buHistory.Enabled := lHistory;
+  buCancelExec.Enabled := lCancel;
 end;
 
 procedure Tmain.EditorOnChange(Sender: TObject);

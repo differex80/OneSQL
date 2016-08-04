@@ -188,7 +188,7 @@ begin
           dm.ConnectSSH(Self, edSshHost.Text, edSshPort.Text, edSshUsername.Text, edSshPassword.Text, edSshKey.Text, edSshListenPort.Text, edServer.Text, edPort.Text);
         end;
         Connection.Connected := True;
-        ShowMessage('Successfully connected to Database!');
+        ShowMessage('Connection successful');
       except
         raise;
       end;
