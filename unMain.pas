@@ -26,7 +26,8 @@ uses
   FireDAC.Phys.OracleDef, FireDAC.VCLUI.Wait, FireDAC.Comp.UI,
   FireDAC.Phys.MySQL, FireDAC.Phys.MySQLDef,
   FireDAC.Phys.SQLiteDef, FireDAC.Stan.ExprFuncs, FireDAC.VCLUI.Async,
-  FireDAC.Phys.SQLite;
+  FireDAC.Phys.SQLite, FireDAC.Phys.PG, FireDAC.Phys.PGDef, FireDAC.Phys.ODBC,
+  FireDAC.Phys.ODBCDef;
 
 const
   maxParams = 20;
@@ -1529,14 +1530,14 @@ begin
       Params.Password := String(Decrypt(AnsiString(IniFile.ReadString(SessionName, 'db_pass', '')),
         dm.encrypt_key));
       Params.DriverID := DriverName;
-      if IniFile.ReadBool(SessionName, 'db_auto_commit', False) then
-        Session.Tag := 1
-      else
-        Session.Tag := 0;
       TxOptions.AutoCommit := IniFile.ReadBool(SessionName, 'db_auto_commit', False);
-      //if IniFile.ReadBool(SessionName, 'db_use_unicode', False) then
-      //  SpecificOptions.Values['UseUnicode'] := 'True';
-
+      if IniFile.ReadBool(SessionName, 'db_use_unicode', False) then
+      begin
+        if (DriverName = 'PG') or (DriverName = 'Ora') then
+          Params.Values['CharacterSet'] := 'UTF8'
+        else if (DriverName = 'MySQL') then
+          Params.Values['CharacterSet'] := 'utf8';
+      end;
       if lPort then
       begin
         if Method = 1 then
@@ -2169,8 +2170,7 @@ begin
     Exit;
   for i := 0 to Tab.ComponentCount - 1 do
   begin
-    if (Tab.Components[i] is TFDConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'con') and
-      (Tab.Components[i].Tag = 0) then
+    if (Tab.Components[i] is TFDConnection) and (copy(Tab.Components[i].Name, 1, 3) = 'con') then
     begin
       Result := TFDConnection(Tab.Components[i]);
       break;
