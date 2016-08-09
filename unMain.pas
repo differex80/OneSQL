@@ -590,6 +590,7 @@ begin
   if Conn = nil then
     Exit;
   Meta := GetMetaData;
+  Meta.Connection := Conn;
   Meta.Active := False;
   try
     { Package procedures/functions}
@@ -2576,12 +2577,12 @@ begin
     MemoSQL.Lines[i] := TrimRight(MemoSQL.Lines[i]);
 
   SQL := GetCommandSQL(Tab);
-  if SQL.Connection = nil then
+  if (SQL.Connection = nil) or (SQL.Connection <> Conn) then
     SQL.Connection := Conn;
   if SQL.Active then
     Exit;
   DataSet := TFDQuery(GridView.DataController.DataSource.DataSet);
-  if DataSet.Connection = nil then
+  if (DataSet.Connection = nil) or (DataSet.Connection <> Conn) then
     DataSet.Connection := Conn;
   DataSet.UnPrepare;
   if (DataSet.Prepared) then

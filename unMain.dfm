@@ -275,7 +275,6 @@ object main: Tmain
       LookAndFeel.NativeStyle = True
       OnCanCloseEx = pcSessionsCanCloseEx
       OnChange = pcSessionsChange
-      ExplicitTop = 3
       ClientRectBottom = 656
       ClientRectLeft = 4
       ClientRectRight = 996
@@ -404,7 +403,6 @@ object main: Tmain
       'LockingMode=Normal')
     FormatOptions.AssignedValues = [fvDefaultParamDataType]
     FormatOptions.DefaultParamDataType = ftString
-    Connected = True
     LoginPrompt = False
     Left = 448
     Top = 40
