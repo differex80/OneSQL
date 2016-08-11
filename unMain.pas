@@ -818,7 +818,12 @@ begin
       sdSQL.FileName := Tab.Caption;
   if Tab.Tag = 1 then
   begin
-    Memo.Lines.SaveToFile(sdSQL.FileName);
+    sSQL := Memo.Lines.Text;
+    if dm.LineEnding = 1 then
+      sSQL := StringReplace(sSQL, #13#10, #10, [rfReplaceAll])
+    else if dm.LineEnding = 2 then
+      sSQL := StringReplace(sSQL, #13#10, #13, [rfReplaceAll]);
+    TFile.WriteAllText(sdSQL.FileName, sSQL, TEncoding.ANSI);
     Tab.Caption := ExtractFileName(sdSQL.FileName);
     Tab.Tag := 1;
   end
