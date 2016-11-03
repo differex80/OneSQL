@@ -174,6 +174,7 @@ begin
   with DbDriverList do
   begin
     Add('MySQL=MySql');
+    Add('MSSQL=MS SQL Server');
     Add('Ora=Oracle');
     Add('SQLite=SQLite');
     Add('PG=PostgeSql');

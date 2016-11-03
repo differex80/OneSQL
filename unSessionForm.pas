@@ -157,7 +157,7 @@ begin
   with Connection do
   begin
     lPort := (DriverName = 'MySQL');
-    lDatabase := (DriverName = 'MySQL');
+    lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL');
     DriverName := cbProvider.Items.Names[cbProvider.ItemIndex];
     if Params.DriverID = 'Ora' then
       Params.Database := edServer.Text

@@ -101,6 +101,7 @@ type
     buSqlDirectory: TcxButton;
     GroupBox6: TGroupBox;
     cboxShowObjectInspector: TCheckBox;
+    cboxFitSmallColumnsToCaption: TCheckBox;
     procedure buFontEditorClick(Sender: TObject);
     procedure buSaveClick(Sender: TObject);
     procedure ColorEditInitPopup(Sender: TObject);
@@ -191,6 +192,7 @@ begin
       WriteBool(secDataGrid, 'NullStringBold', fsBold in edNullString.Font.Style);
       WriteBool(secDataGrid, 'NullStringItalic', fsItalic in edNullString.Font.Style);
       WriteInteger(secDataGrid, 'NullStringBackground', ceNullStringBackground.ColorValue);
+      WriteBool(secDataGrid, 'FitSmallColumnsToCaption', cboxFitSmallColumnsToCaption.Checked);
       {Editor}
       WriteString(secEditor, 'FontName', buFontEditor.Font.Name);
       WriteInteger(secEditor, 'FontSize', buFontEditor.Font.Size);
@@ -342,6 +344,7 @@ begin
       buNullStringItalic.Down := lItalic;
       ceNullStringBackground.ColorValue := ReadInteger(secDataGrid, 'NullStringBackground', clWhite);
       edNullString.Color := ceNullStringBackground.ColorValue;
+      cboxFitSmallColumnsToCaption.Checked := ReadBool(secDataGrid, 'FitSmallColumnsToCaption', False);
       {Editor}
       buFontEditor.Font.Name := ReadString(secEditor, 'FontName', 'Courier New');
       buFontEditor.Font.Size := ReadInteger(secEditor, 'FontSize', 10);

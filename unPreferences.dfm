@@ -69,7 +69,7 @@ object Preferences: TPreferences
       Height = 518
       Align = alClient
       TabOrder = 0
-      Properties.ActivePage = tsGeneral
+      Properties.ActivePage = tsGrid
       Properties.CustomButtons.Buttons = <>
       ClientRectBottom = 514
       ClientRectLeft = 4
@@ -154,10 +154,6 @@ object Preferences: TPreferences
       object tsEditor: TcxTabSheet
         BorderWidth = 4
         Caption = 'SQL Editor'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox1: TGroupBox
           Left = 0
           Top = 0
@@ -583,10 +579,6 @@ object Preferences: TPreferences
       object tsGrid: TcxTabSheet
         BorderWidth = 4
         Caption = 'Data Grid'
-        ExplicitLeft = 0
-        ExplicitTop = 0
-        ExplicitWidth = 0
-        ExplicitHeight = 0
         object GroupBox3: TGroupBox
           Left = 0
           Top = 0
@@ -706,6 +698,14 @@ object Preferences: TPreferences
             SpeedButtonOptions.AllowAllUp = True
             TabOrder = 3
             OnClick = buNullStringItalicClick
+          end
+          object cboxFitSmallColumnsToCaption: TCheckBox
+            Left = 88
+            Top = 60
+            Width = 219
+            Height = 17
+            Caption = 'Fit small columns to caption size'
+            TabOrder = 4
           end
         end
       end

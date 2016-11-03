@@ -424,4 +424,20 @@ object main: Tmain
     Left = 594
     Top = 40
   end
+  object FDConnection1: TFDConnection
+    Params.Strings = (
+      'DriverID=MySQL'
+      'Database=reflected_dev'
+      'Port=3308'
+      'Server=localhost'
+      'User_Name=root'
+      'Password=2j6tevev')
+    Left = 272
+    Top = 256
+  end
+  object FDQuery1: TFDQuery
+    Connection = FDConnection1
+    Left = 496
+    Top = 360
+  end
 end

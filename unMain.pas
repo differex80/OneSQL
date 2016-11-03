@@ -27,7 +27,7 @@ uses
   FireDAC.Phys.MySQL, FireDAC.Phys.MySQLDef,
   FireDAC.Phys.SQLiteDef, FireDAC.Stan.ExprFuncs, FireDAC.VCLUI.Async,
   FireDAC.Phys.SQLite, FireDAC.Phys.PG, FireDAC.Phys.PGDef, FireDAC.Phys.ODBC,
-  FireDAC.Phys.ODBCDef;
+  FireDAC.Phys.ODBCDef, FireDAC.Phys.MSSQL, FireDAC.Phys.MSSQLDef;
 
 const
   maxParams = 20;
@@ -112,6 +112,8 @@ type
     SQLiteLogCon: TFDConnection;
     qLog: TFDCommand;
     execDialog: TFDGUIxAsyncExecuteDialog;
+    FDConnection1: TFDConnection;
+    FDQuery1: TFDQuery;
     procedure FormCreate(Sender: TObject);
     procedure acNewSessionExecute(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -144,6 +146,7 @@ type
   private
     EditorParams: TEditorParams;
     cNullString: String;
+    lFitSmallColumnsToCaption: Boolean;
     procedure InitParams(var P: TParams);
     procedure InitEditorParams(var EP: TEditorParams);
     procedure SaveParams(Editor: TSynEdit; FileName: TFileName; Params: TParams);
@@ -1130,6 +1133,7 @@ begin
     OptionsBehavior.ImmediateEditor := False;
     OptionsBehavior.IncSearch := True;
     OptionsBehavior.BestFitMaxRecordCount := 5;
+    OptionsSelection.MultiSelect := True;
     OptionsData.Inserting := False;
     OptionsData.Deleting := False;
     Styles.Content := dm.GridContent;
@@ -1526,7 +1530,7 @@ begin
       Method := IniFile.ReadInteger(SessionName, 'session_type', -1);
       DriverName := IniFile.ReadString(SessionName, 'db_provider', '');
       lPort := (DriverName = 'MySQL');
-      lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite');
+      lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL');
       if DriverName = 'Ora' then
         Params.Database := IniFile.ReadString(SessionName, 'db_server', '')
       else
@@ -2418,6 +2422,7 @@ begin
       dm.GridAltRow.Color := $00F0F0F0;
       dm.GridHeader.Font := dm.GridContent.Font;
       cNullString := ReadString(secDataGrid, 'NullString', '{null}');
+      lFitSmallColumnsToCaption := ReadBool(secDataGrid, 'FitSmallColumnsToCaption', False);
       dm.NullString.Color := ReadInteger(secDataGrid, 'NullStringBackground', clWhite);
       dm.NullString.Font := dm.GridContent.Font;
 
@@ -2700,7 +2705,7 @@ begin
           if Params[i + 1].ParamType = 'Substitution' then
           begin
             if Params[i + 1].Active = '1' then
-              DataSet.MacroByName(Params[i + 1].ParamName).Value :=
+              DataSet.MacroByName(Params[i + 1].ParamName).AsRaw :=
                 VarToStr(Params[i + 1].ParamValue)
             else
               DataSet.MacroByName(Params[i + 1].ParamName).Value := '';
@@ -2834,6 +2839,16 @@ begin
     end;
   finally
     GridView.EndUpdate;
+    { Apply auto-width on columns that are smaller then their caption }
+    if lFitSmallColumnsToCaption and (Query <> nil) and (Query.Active) then
+    begin
+      for i := 0 to GridView.ColumnCount - 1 do
+      begin
+        if (GridView.Columns[i].Width <= 100) and (Length(GridView.Columns[i].Caption) > 10) then
+          GridView.Columns[i].ApplyBestFit;
+      end;
+    end;
+
     { Get Cancel button and enable it }
     //CancelBtn := GetCancelButton(EditorTab);
     //if CancelBtn <> nil then
@@ -2972,6 +2987,9 @@ procedure Tmain.OnEditorClose(Sender: TObject; ATabIndex: Integer; var ACanClose
 var
   mr: Integer;
 begin
+  if (TcxPageControl(Sender).ActivePageIndex <> ATabIndex) then
+    TcxPageControl(Sender).ActivePageIndex := ATabIndex;
+
   if pos('*', TcxPageControl(Sender).Pages[ATabIndex].Caption) > 0 then
   begin
     mr := MessageDlg('Save changes for "' + TcxPageControl(Sender).Pages[ATabIndex].Caption + '"?',
@@ -2985,6 +3003,7 @@ begin
       mrYes:
         begin
           SaveSQL(TcxPageControl(Sender).Pages[ATabIndex]);
+          ACanClose := TcxPageControl(Sender).Pages[ATabIndex].Tag = 1;
         end;
     end;
   end;
