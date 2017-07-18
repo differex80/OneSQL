@@ -1577,7 +1577,7 @@ begin
           end;
         end;
       end;
-      { Create SSH tunnef if needed }
+      { Create SSH tunnel if needed }
       try
         if Method = 1 then
         begin
