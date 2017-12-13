@@ -422,10 +422,6 @@ object sessionForm: TsessionForm
     Top = 224
   end
   object Connection: TFDConnection
-    Params.Strings = (
-      'Password=alienware'
-      'User_Name=budget'
-      'Database=193.198.20.53')
     LoginPrompt = False
     Left = 24
     Top = 341

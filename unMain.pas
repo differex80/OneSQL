@@ -117,7 +117,6 @@ type
     procedure FormCreate(Sender: TObject);
     procedure acNewSessionExecute(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure cxButton3Click(Sender: TObject);
     procedure acSessionManagerExecute(Sender: TObject);
     procedure acNewEditorExecute(Sender: TObject);
     procedure pmCloseClick(Sender: TObject);
@@ -458,16 +457,6 @@ end;
 procedure Tmain.cxButton1Click(Sender: TObject);
 begin
   GetSessionObjects(GetSession(pcSessions.ActivePage.Caption));
-end;
-
-procedure Tmain.cxButton3Click(Sender: TObject);
-var
-  SessionF: TsessionForm;
-begin
-  dm.connection_name := TcxButton(Sender).Caption;
-  SessionF := TsessionForm.Create(Self);
-  SessionF.ShowModal;
-  SessionF.Destroy;
 end;
 
 procedure Tmain.onStatusGridDblClick(Sender: TcxCustomGridTableView;
@@ -1529,8 +1518,8 @@ begin
       LoginPrompt := False;
       Method := IniFile.ReadInteger(SessionName, 'session_type', -1);
       DriverName := IniFile.ReadString(SessionName, 'db_provider', '');
-      lPort := (DriverName = 'MySQL');
-      lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL');
+      lPort := (DriverName = 'MySQL') or (DriverName = 'PG');
+      lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL') or (DriverName = 'PG');
       if DriverName = 'Ora' then
         Params.Database := IniFile.ReadString(SessionName, 'db_server', '')
       else
@@ -2629,7 +2618,7 @@ begin
   if Trim(sql_text) = '' then
     Exit;
   if (LowerCase(copy(sql_text, 1, 4)) = 'sele') or (LowerCase(copy(sql_text, 1, 4)) = 'show') or
-    (LowerCase(copy(sql_text, 1, 4)) = 'desc') then
+    (LowerCase(copy(sql_text, 1, 4)) = 'desc') or (LowerCase(copy(sql_text, 1, 4)) = 'expl') then
     lSelect := True;
   DataSet.SQL.Text := sql_text;
   SQL.CommandText.Text := sql_text;
@@ -2764,7 +2753,7 @@ begin
       sSqlText := SQL.CommandText.Text;
       sSession := TcxTabSheet(SQL.Connection.Owner).Caption;
       for i := 1 to Length(SQL.CommandText.Text) do
-        if SQL.CommandText.Text[i].IsWhiteSpace then
+        if (SQL.CommandText.Text[i].IsWhiteSpace) then
           break;
       sCommand := copy(SQL.CommandText.Text, 1, i - 1);
       if sCommand = 'create' then

@@ -11,7 +11,8 @@ uses
   cxMaskEdit, cxDropDownEdit, cxColorComboBox, cxImageComboBox, OleCtrls,
   cxGroupBox, System.Actions, FireDAC.Stan.Intf, FireDAC.Stan.Option,
   FireDAC.Stan.Error, FireDAC.UI.Intf, FireDAC.Phys.Intf, FireDAC.Stan.Def,
-  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Comp.Client;
+  FireDAC.Stan.Pool, FireDAC.Stan.Async, FireDAC.Phys, FireDAC.Comp.Client,
+  FireDAC.Phys.PG, FireDAC.Phys.PGDef;
 
 type
   TsessionForm = class(TForm)
@@ -156,8 +157,8 @@ var
 begin
   with Connection do
   begin
-    lPort := (DriverName = 'MySQL');
-    lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL');
+    lPort := (DriverName = 'MySQL') or (DriverName = 'PG');
+    lDatabase := (DriverName = 'MySQL') or (DriverName = 'SQLite') or (DriverName = 'MSSQL') or (DriverName = 'PG');
     DriverName := cbProvider.Items.Names[cbProvider.ItemIndex];
     if Params.DriverID = 'Ora' then
       Params.Database := edServer.Text
