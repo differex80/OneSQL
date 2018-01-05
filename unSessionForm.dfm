@@ -83,11 +83,8 @@ object sessionForm: TsessionForm
       Top = 81
       Width = 175
       Height = 21
+      Sorted = True
       TabOrder = 2
-      Items.Strings = (
-        'Jedan'
-        'Dva'
-        'Tri')
     end
   end
   object gbSSH: TcxGroupBox
