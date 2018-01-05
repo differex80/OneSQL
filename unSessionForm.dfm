@@ -5,7 +5,7 @@ object sessionForm: TsessionForm
   BorderStyle = bsSingle
   BorderWidth = 4
   Caption = 'Add Database Connection'
-  ClientHeight = 591
+  ClientHeight = 619
   ClientWidth = 325
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
@@ -19,29 +19,9 @@ object sessionForm: TsessionForm
   OnCreate = FormCreate
   DesignSize = (
     325
-    591)
+    619)
   PixelsPerInch = 96
   TextHeight = 13
-  object buSave: TcxButton
-    Left = 123
-    Top = 565
-    Width = 98
-    Height = 25
-    Action = acSave
-    Anchors = [akLeft, akBottom]
-    LookAndFeel.NativeStyle = True
-    TabOrder = 4
-  end
-  object buTest: TcxButton
-    Left = 0
-    Top = 565
-    Width = 98
-    Height = 25
-    Action = acTest
-    Anchors = [akLeft, akBottom]
-    LookAndFeel.NativeStyle = True
-    TabOrder = 3
-  end
   object gbConn: TcxGroupBox
     Left = 0
     Top = 0
@@ -52,7 +32,7 @@ object sessionForm: TsessionForm
     StyleFocused.LookAndFeel.NativeStyle = True
     StyleHot.LookAndFeel.NativeStyle = True
     TabOrder = 0
-    Height = 88
+    Height = 113
     Width = 325
     object Label11: TLabel
       Left = 24
@@ -69,6 +49,14 @@ object sessionForm: TsessionForm
       Height = 13
       Alignment = taRightJustify
       Caption = 'Connection Name'
+    end
+    object laGroup: TLabel
+      Left = 31
+      Top = 84
+      Width = 86
+      Height = 13
+      Alignment = taRightJustify
+      Caption = 'Connection Group'
     end
     object cbSessionType: TComboBox
       Left = 123
@@ -90,11 +78,22 @@ object sessionForm: TsessionForm
       Height = 21
       TabOrder = 0
     end
+    object cbGroup: TComboBox
+      Left = 123
+      Top = 81
+      Width = 175
+      Height = 21
+      TabOrder = 2
+      Items.Strings = (
+        'Jedan'
+        'Dva'
+        'Tri')
+    end
   end
   object gbSSH: TcxGroupBox
     AlignWithMargins = True
     Left = 0
-    Top = 93
+    Top = 118
     Margins.Left = 0
     Margins.Top = 5
     Margins.Right = 0
@@ -106,6 +105,7 @@ object sessionForm: TsessionForm
     StyleFocused.LookAndFeel.NativeStyle = True
     StyleHot.LookAndFeel.NativeStyle = True
     TabOrder = 1
+    ExplicitTop = 93
     Height = 214
     Width = 325
     object Label7: TLabel
@@ -215,7 +215,7 @@ object sessionForm: TsessionForm
   object gbDB: TcxGroupBox
     AlignWithMargins = True
     Left = 0
-    Top = 312
+    Top = 337
     Margins.Left = 0
     Margins.Top = 5
     Margins.Right = 0
@@ -227,6 +227,7 @@ object sessionForm: TsessionForm
     StyleFocused.LookAndFeel.NativeStyle = True
     StyleHot.LookAndFeel.NativeStyle = True
     TabOrder = 2
+    ExplicitTop = 312
     Height = 250
     Width = 325
     object Label1: TLabel
@@ -378,7 +379,7 @@ object sessionForm: TsessionForm
   end
   object buCancel: TcxButton
     Left = 227
-    Top = 565
+    Top = 593
     Width = 98
     Height = 25
     Action = acCancel
@@ -387,6 +388,29 @@ object sessionForm: TsessionForm
     LookAndFeel.NativeStyle = True
     ModalResult = 2
     TabOrder = 5
+    ExplicitTop = 565
+  end
+  object buSave: TcxButton
+    Left = 123
+    Top = 593
+    Width = 98
+    Height = 25
+    Action = acSave
+    Anchors = [akLeft, akBottom]
+    LookAndFeel.NativeStyle = True
+    TabOrder = 4
+    ExplicitTop = 565
+  end
+  object buTest: TcxButton
+    Left = 0
+    Top = 593
+    Width = 98
+    Height = 25
+    Action = acTest
+    Anchors = [akLeft, akBottom]
+    LookAndFeel.NativeStyle = True
+    TabOrder = 3
+    ExplicitTop = 565
   end
   object ac: TActionList
     Images = dm.imListSmall

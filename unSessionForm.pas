@@ -63,6 +63,8 @@ type
     cbAutoCommit: TCheckBox;
     cbUseUnicode: TCheckBox;
     Connection: TFDConnection;
+    cbGroup: TComboBox;
+    laGroup: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure cbProviderChange(Sender: TObject);
     procedure acCancelExecute(Sender: TObject);
@@ -76,6 +78,7 @@ type
       Rect: TRect; State: TOwnerDrawState);
   private
     { Private declarations }
+    procedure PopulateGroups(IniFile: TIniFile);
   public
     { Public declarations }
   end;
@@ -120,6 +123,7 @@ begin
   try
     with IniFile do
     begin
+      WriteString(session_name, 'session_group', cbGroup.Text);
       WriteInteger(session_name,'session_type', cbSessionType.ItemIndex);
       if cbSessionType.ItemIndex = 1 then
       begin
@@ -259,18 +263,31 @@ procedure TsessionForm.FormCreate(Sender: TObject);
 var
   IniFile : TIniFile;
   sProvider: String;
+  lClone: Boolean;
 begin
+  lClone := False;
+  if (pos('clone#', dm.connection_name) > 0) then
+  begin
+    lClone := True;
+    dm.connection_name := Copy(dm.connection_name, 7);
+  end;
+
   cbProvider.Items.Text := dm.DbDriverList.Text;
   cbProvider.ItemIndex := 0;
+  IniFile := dm.GetSessionIniFile;
+  PopulateGroups(IniFile);
   if dm.connection_name <> '' then
   begin
     Caption := 'Edit Database Connection';
-    edSessionName.Enabled := False;
-    IniFile := dm.GetSessionIniFile;
+    edSessionName.Enabled := lClone;
     try
       with IniFile do
       begin
-        edSessionName.Text := dm.connection_name;
+        if (lClone) then
+          edSessionName.Text := ''
+        else
+          edSessionName.Text := dm.connection_name;
+        cbGroup.ItemIndex := cbGroup.Items.IndexOf(ReadString(dm.connection_name, 'session_group', ''));
         cbSessionType.ItemIndex := ReadInteger(dm.connection_name, 'session_type', -1);
         if cbSessionType.ItemIndex = 1 then
         begin
@@ -304,6 +321,27 @@ begin
   cbSessionType.OnChange(cbSessionType);
   cbProvider.OnChange(cbProvider);
   cboxKey.OnClick(cboxKey);
+end;
+
+procedure TsessionForm.PopulateGroups(IniFile: TIniFile);
+var
+  Sections: TStringList;
+  i: Integer;
+  sGroup: String;
+begin
+  Sections := TStringList.Create;
+  cbGroup.Items.Clear;
+  try
+    IniFile.ReadSections(Sections);
+    for i := 0 to Sections.Count -1 do
+    begin
+      sGroup := IniFile.ReadString(Sections.Strings[i], 'session_group', '');
+      if (cbGroup.Items.IndexOf(sGroup) = -1) then
+        cbGroup.Items.Add(sGroup);
+    end;
+  finally
+    Sections.Free;
+  end;
 end;
 
 end.

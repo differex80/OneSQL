@@ -28,6 +28,8 @@ type
     acEditSession: TAction;
     Edit1: TMenuItem;
     N1: TMenuItem;
+    Clone1: TMenuItem;
+    acCopySession: TAction;
     procedure FormShow(Sender: TObject);
     procedure acCancelExecute(Sender: TObject);
     procedure acConnectExecute(Sender: TObject);
@@ -37,6 +39,7 @@ type
     procedure acDeleteSessionExecute(Sender: TObject);
     procedure acEditSessionExecute(Sender: TObject);
     procedure tvSessionsDblClick(Sender: TObject);
+    procedure acCopySessionExecute(Sender: TObject);
   private
     { Private declarations }
     procedure Init;
@@ -65,6 +68,13 @@ end;
 procedure TsessionManager.acConnectExecute(Sender: TObject);
 begin
   Connect;
+end;
+
+procedure TsessionManager.acCopySessionExecute(Sender: TObject);
+begin
+  dm.connection_name := 'clone#' + tvSessions.Selected.Text;
+  ModalResult := mrOk;
+  CloseModal;
 end;
 
 procedure TsessionManager.acDeleteSessionExecute(Sender: TObject);
@@ -100,6 +110,7 @@ begin
   if Node <> nil then
   begin
     if Node.Level = 0 then Exit;
+    if Node.HasChildren then Exit;
     dm.new_session := Node.Text;
     ModalResult := mrOk;
     CloseModal;
@@ -114,18 +125,29 @@ end;
 procedure TsessionManager.Init;
 var
   IniFile: TIniFile;
-  Sections: TStringList;
-  i: Integer;
-  ParentNode, Node: TTreeNode;
-  sDatabase: String;
+  Sections, SortedSections: TStringList;
+  i, j: Integer;
+  ParentNode, Node, GroupNode, SessionParent: TTreeNode;
+  sDatabase, sGroup: String;
 begin
   IniFile := dm.GetSessionIniFile;
   Sections := TStringList.Create;
+  SortedSections := TStringList.Create;
   try
     IniFile.ReadSections(Sections);
     tvSessions.Items.Clear;
     for i := 0 to Sections.Count -1 do
     begin
+      sDatabase := IniFile.ReadString(Sections.Strings[i], 'db_provider', '');
+      sGroup := IniFile.ReadString(Sections.Strings[i], 'session_group', '');
+      if sGroup = '' then
+        sGroup := 'ZZZZ';
+      SortedSections.Add(Format('%s|%s|%s|%d', [sDatabase, sGroup, Sections.Strings[i], i]));
+    end;
+    SortedSections.Sort;
+    for j := 0 to SortedSections.Count -1 do
+    begin
+      i := StrToInt(SortedSections.Strings[j].Split(['|'])[3]);
       sDatabase := IniFile.ReadString(Sections.Strings[i], 'db_provider', '');
       ParentNode := GetNodeByText(tvSessions, dm.DbDriverList.Values[sDatabase], True);
       if not Assigned(ParentNode) then
@@ -134,7 +156,26 @@ begin
         ParentNode.ImageIndex := 3;
         ParentNode.SelectedIndex := ParentNode.ImageIndex;
       end;
-      Node := tvSessions.Items.AddChild(ParentNode, Sections.Strings[i]);
+      sGroup := IniFile.ReadString(Sections.Strings[i], 'session_group', '');
+      if (sGroup <> '') then
+      begin
+        GroupNode := GetNodeByText(tvSessions, sGroup, True);
+        if not Assigned(GroupNode) then
+        begin
+          GroupNode := tvSessions.Items.AddChild(ParentNode, sGroup);
+          GroupNode.ImageIndex := 4;
+          GroupNode.SelectedIndex := GroupNode.ImageIndex;
+        end;
+      end
+      else
+        GroupNode := nil;
+
+      if Assigned(GroupNode) then
+        SessionParent := GroupNode
+      else
+        SessionParent := ParentNode;
+
+      Node := tvSessions.Items.AddChild(SessionParent, Sections.Strings[i]);
       Node.ImageIndex := IniFile.ReadInteger(Sections.Strings[i], 'db_environment', -1);
       Node.SelectedIndex := Node.ImageIndex;
       Node.MakeVisible;
@@ -143,6 +184,7 @@ begin
   finally
     IniFile.Free;
     Sections.Free;
+    SortedSections.Free;
   end;
 end;
 
