@@ -1063,14 +1063,14 @@ begin
     PageControl := pcResults;
     Caption := 'Status';
   end;
-  { Create CommandSQl - For DML and DDL actions }
+  { Create CommandSQL - For DML and DDL actions }
   SQL := TFDCOmmand.Create(Tab);
   with SQL do
   begin
     Name := 'sSQL' + pcEditors.Name + IntToStr(pcEditors.Tag);
     Connection := Conn;
   end;
-  { Create Querry - For select statements }
+  { Create Query - For select statements }
   Query := TFDQuery.Create(Tab);
   with Query do
   begin
@@ -1163,7 +1163,7 @@ begin
     Styles.ContentOdd := dm.GridAltRow;
     Styles.Header := dm.GridHeader;
     Styles.onGetContentStyle := onGetContentStyle;
-{$REGION 'Create Columsn'}
+{$REGION 'Create Columns'}
     { Create image column }
     Col := CreateColumn;
     Col.Visible := False;
@@ -1235,7 +1235,7 @@ var
   memTable: TSQLMemTable;
   Conn: TFDConnection;
 begin
-  { Try to find existing connectoin }
+  { Try to find existing connection }
   Tab := nil;
   for i := 0 to pcSessions.PageCount - 1 do
   begin
@@ -2565,7 +2565,7 @@ begin
     DataSet := TFDQuery(GetDataGridView(Tab.PageControl.Pages[i]).DataController.DataSet);
     if (DataSet.Command.State = csExecuting) or (DataSet.Command.State = csFetching) then
     begin
-      ShowMessage('Session busy! Executing/fetching in progres...');
+      ShowMessage('Session busy! Executing/fetching in progress...');
       Tab.PageControl.ActivePageIndex := i;
       Exit;
     end;
